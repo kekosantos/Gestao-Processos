@@ -1,0 +1,27 @@
+# Render — VALIDAÇÃO (DEV/HML). Produção: Fly.io (fly.toml).
+# Funciona no plano gratuito: as tabelas são criadas ao iniciar (RUN_MIGRATIONS=true).
+# Atenção: o plano gratuito "adormece" sem uso — não use para dados jurídicos reais.
+services:
+  - type: web
+    name: lexcloud                   # troque pelo nome exato do serviço, se já existir
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - { key: APP_ENV, value: production }
+      - { key: APP_TIMEZONE, value: America/Sao_Paulo }
+      - { key: MAX_UPLOAD_BYTES, value: "12582912" }
+      - { key: RUN_MIGRATIONS, value: "true" }
+      - { key: TRUST_PROXY, value: "true" }     # IP real atrás do proxy (bloqueio de login e auditoria)
+      - { key: APP_URL, sync: false }           # https://<serviço>.onrender.com (sem barra no fim) — usado nos links de e-mail
+      - { key: DATABASE_URL, sync: false }      # mysqls://USUARIO:SENHA@HOST:4000/lexcloud  (TiDB: mysqls = com TLS)
+      - { key: SETUP_TOKEN, sync: false }       # só para criar o admin da plataforma; apague depois
+      - { key: MAIL_HOST, sync: false }
+      - { key: MAIL_PORT, sync: false }
+      - { key: MAIL_SECURE, sync: false }
+      - { key: MAIL_USER, sync: false }
+      - { key: MAIL_PASS, sync: false }
+      - { key: MAIL_FROM, sync: false }
+      - { key: MAIL_FROM_NAME, sync: false }

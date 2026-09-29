@@ -1,0 +1,14 @@
+.env
+.env.*
+!.env.example
+*.log
+.DS_Store
+Thumbs.db
+/vendor/
+/node_modules/
+/storage/
+.phpunit.cache/
+coverage/
+__pycache__/
+*.py[cod]
+deploy/fly-secrets.local

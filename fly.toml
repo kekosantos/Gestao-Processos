@@ -1,0 +1,37 @@
+# Troque o nome do app antes de executar fly launch.
+app = "lexcloud-seu-nome-unico"
+primary_region = "gru"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  APP_ENV = "production"
+  APP_TIMEZONE = "America/Sao_Paulo"
+  MAX_UPLOAD_BYTES = "12582912"
+  PORT = "8080"
+  TRUST_PROXY = "true"
+  # APP_URL = "https://lexcloud-seu-nome-unico.fly.dev"   # use o endereço real (links dos e-mails)
+
+[deploy]
+  # A migração usa apenas operações aditivas e ocorre antes da versão receber tráfego.
+  release_command = "php bin/migrate.php"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 1
+
+[[http_service.checks]]
+  grace_period = "15s"
+  interval = "30s"
+  method = "GET"
+  timeout = "5s"
+  path = "/api/health"
+
+[[vm]]
+  cpu_kind = "shared"
+  cpus = 1
+  memory = "512mb"
