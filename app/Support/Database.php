@@ -87,6 +87,9 @@ final class Database
             if (!defined('PDO::MYSQL_ATTR_SSL_CA')) {
                 throw new RuntimeException('O PHP precisa da extensão PDO MySQL com suporte a TLS.');
             }
+            // MYSQL_SSL_VERIFY=false: mantém a conexão criptografada, mas não confere o certificado do servidor.
+            // Só use se o log apontar erro de certificado (o padrão é conferir).
+            if (strtolower((string) getenv('MYSQL_SSL_VERIFY')) === 'false') { $verifyCertificate = false; }
             $options[\PDO::MYSQL_ATTR_SSL_CA] = $sslCa;
             if (defined('PDO::MYSQL_ATTR_SSL_VERIFY_SERVER_CERT')) {
                 $options[\PDO::MYSQL_ATTR_SSL_VERIFY_SERVER_CERT] = $verifyCertificate;
@@ -96,7 +99,8 @@ final class Database
         try {
             self::$connection = new PDO($pdoDsn, $user, $password, $options);
         } catch (PDOException $exception) {
-            error_log('LexCloud database connection failed: ' . $exception->getCode());
+            // Motivo real nos logs (código + texto do driver; o texto não inclui a senha). Ex.: [1049] Unknown database
+            error_log('LexCloud database connection failed [' . $exception->getCode() . ']: ' . $exception->getMessage());
             throw new RuntimeException('Não foi possível conectar ao banco. Confira as variáveis de ambiente e a disponibilidade do MySQL.');
         }
 
