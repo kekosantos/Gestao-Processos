@@ -1,3 +1,13 @@
+# Primeiro acesso (v2.1)
+
+- **Seu acesso é criado sozinho** quando o sistema inicia: usuário **`cleiton.santos`**, senha **`password`** (ou o valor da variável `SENHA_PADRAO`). O sistema **pede a troca** no primeiro acesso, e a senha inicial vale 7 dias.
+- **Já existia um admin, e você não lembra a senha?** Cadastre `ADMIN_REDEFINIR=true` no Render, espere publicar, entre com `cleiton.santos` e a senha padrão, e **apague a variável**. A conta é a mesma; só o usuário e a senha voltam ao padrão.
+- **Escritório de demonstração:** usuário **`demo`** com a senha padrão (troca no primeiro acesso). Traz dados fictícios: 5 clientes, 5 processos, 5 tarefas, 5 compromissos, 6 lançamentos, 2 documentos e 5 pessoas na equipe. Com `DEMO_DATA=false`, ele não é criado.
+- **Escritórios novos que você cria no painel:** o responsável entra com o **e-mail** e a **senha padrão** (troca no primeiro acesso, validade de 7 dias). O convite por e-mail continua indo, como alternativa. "Reenviar convite" renova esse acesso.
+- **Equipe criada pelo próprio escritório:** recebe uma senha temporária **própria**, mostrada na tela, e **não** a senha padrão da plataforma. Assim, os responsáveis de um escritório não ficam sabendo a senha inicial dos outros escritórios.
+
+> **Segurança:** `password` é a senha mais testada por robôs na internet. Enquanto uma conta nova não troca a senha, ela fica exposta. Para diminuir o risco: a troca é obrigatória, a senha vale só 7 dias, e o login bloqueia depois de 6 erros. **Recomendado:** cadastrar `SENHA_PADRAO` no Render com um valor só seu. A troca continua obrigatória do mesmo jeito.
+
 # Deploy — resumo (TiDB + Render para validação + Fly.io para produção)
 
 1. **Banco (TiDB):** crie o banco `lexcloud`. As tabelas são criadas sozinhas pelo sistema: no Render ao iniciar, no Fly pelo `release_command`. Se preferir, rode `database/schema.sql` no SQL Editor.
@@ -9,6 +19,10 @@
 3. **Primeiro acesso:** abra `https://<serviço>/#/instalar`, crie o admin da plataforma e **apague o `SETUP_TOKEN`**.
 4. **Escritórios:** no painel, use **"+ Novo escritório"**. O responsável recebe o convite por e-mail.
 5. **Fly** (produção): use o `fly.toml` e cadastre os secrets de `deploy/fly-secrets.example`.
+
+> **Erro de banco no Render?** O log agora mostra o motivo real na linha `LexCloud database connection failed [código]: ...`.
+> `[1049]` o banco `lexcloud` não existe (rode o `CREATE DATABASE`); `[1045]` usuário ou senha recusados (o usuário do TiDB é o completo, com prefixo, ex.: `23Pxxxx.root`);
+> `[1044]` sem permissão no banco `lexcloud`; `[2002]`/`[2006]` host ou porta errados; `[2026]` erro de certificado (cadastre `MYSQL_SSL_VERIFY=false`).
 
 > O plano gratuito do Render "adormece" sem uso. Use-o só para validar, não para dados jurídicos reais.
 

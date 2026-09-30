@@ -107,14 +107,16 @@ final class Security
             'tenant_slug' => $u['tenant_slug'],
         ];
         $_SESSION['user'] = $user + ['pw' => $assinatura];
-        // Modo suporte (somente leitura) do admin da plataforma
+        // Acesso da CHS a um escritório (como o "Dashboard" do Gestão de Notas): acesso COMPLETO, agindo como
+        // o usuário oculto "Suporte CHS" daquele escritório (assim tudo fica registrado como feito pela CHS)
         $suporte = (int) ($_SESSION['support_tenant'] ?? 0);
         if ($suporte > 0 && $user['role'] === 'platform_admin' && $user['tenant_id'] === null) {
             $t = Database::connection()->prepare('SELECT id,name,slug FROM tenants WHERE id=?');
             $t->execute([$suporte]);
             if ($tt = $t->fetch()) {
-                return self::$atual = ['id' => $user['id'], 'tenant_id' => (int) $tt['id'], 'name' => $user['name'], 'email' => $user['email'],
-                    'role' => 'owner', 'must_change_password' => 0, 'tenant_name' => $tt['name'], 'tenant_slug' => $tt['slug'], 'support' => true];
+                return self::$atual = ['id' => self::usuarioSuporte(Database::connection(), (int) $tt['id']), 'tenant_id' => (int) $tt['id'],
+                    'name' => $user['name'] . ' (CHS)', 'email' => $user['email'], 'role' => 'owner', 'must_change_password' => 0,
+                    'tenant_name' => $tt['name'], 'tenant_slug' => $tt['slug'], 'support' => true, 'platform_user_id' => (int) $user['id']];
             }
             unset($_SESSION['support_tenant']);
         }
@@ -182,5 +184,31 @@ final class Security
             $entityId,
             mb_substr(self::clientIp(), 0, 45),
         ]);
+    }
+
+    /**
+     * Senha inicial das contas criadas pela plataforma (troca obrigatória no primeiro acesso, vale 7 dias).
+     * Defina SENHA_PADRAO no Render/Fly com um valor só seu; sem ela, vale "password".
+     */
+    public static function senhaPadrao(): string
+    {
+        $v = (string) getenv('SENHA_PADRAO');
+        return $v !== '' ? $v : 'password';
+    }
+
+    public const DIAS_SENHA_INICIAL = 7;
+
+    /**
+     * Usuário oculto "Suporte CHS" do escritório (criado na primeira vez). Não aparece na equipe e não entra
+     * pelo login (active=0): existe só para o que a CHS faz dentro do escritório ficar registrado em nome dela.
+     */
+    public static function usuarioSuporte(PDO $db, int $tenantId): int
+    {
+        $s = $db->prepare('SELECT id FROM users WHERE tenant_id=? AND suporte=1 ORDER BY id LIMIT 1');
+        $s->execute([$tenantId]);
+        if ($id = (int) $s->fetchColumn()) return $id;
+        $db->prepare("INSERT INTO users (tenant_id,name,email,password_hash,role,active,must_change_password,suporte) VALUES (?,?,?,?,'owner',0,0,1)")
+           ->execute([$tenantId, 'Suporte CHS', 'suporte-chs-' . $tenantId . '@lexcloud.invalid', password_hash(bin2hex(random_bytes(32)), PASSWORD_DEFAULT)]);
+        return (int) $db->lastInsertId();
     }
 }

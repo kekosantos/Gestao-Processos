@@ -52,10 +52,7 @@ final class ApiController
 
         $user = Security::requireUser();
         if (!empty($user['must_change_password']) && $path !== '/api/auth/change-password') { Http::fail('Troque sua senha temporária antes de continuar.', 403); }
-        // Modo suporte: o admin da plataforma só VÊ os dados do escritório
-        if (!empty($user['support']) && $method !== 'GET' && $path !== '/api/platform/support/exit') {
-            Http::fail('Modo suporte é somente leitura. Saia do suporte para voltar ao painel da plataforma.', 403);
-        }
+        // Acesso da CHS a um escritório: completo, como o "Dashboard" do Gestão de Notas (a troca de senha é bloqueada na própria rota)
         if ($path === '/api/platform/support/exit' && $method === 'POST') {
             Security::verifyCsrf();
             unset($_SESSION['support_tenant']); Security::forget();
@@ -101,15 +98,17 @@ final class ApiController
         $input = Http::json();
         if ($path === '/api/auth/change-password') {
             $user = Security::requireUser();
+            if (!empty($user['support'])) { Http::fail('No acesso da CHS não há senha do escritório para trocar. Volte ao painel para trocar a sua.', 403); }
             $current = (string) ($input['current_password'] ?? '');
             $next = (string) ($input['new_password'] ?? '');
             if (strlen($next) < 12 || strlen($next) > 200) { Http::fail('A nova senha precisa ter entre 12 e 200 caracteres.'); }
+            if (hash_equals(Security::senhaPadrao(), $next)) { Http::fail('Escolha uma senha diferente da senha inicial.'); }
             if (!empty($user['tenant_id'])) { $stmt = $db->prepare('SELECT password_hash FROM users WHERE id=? AND tenant_id=? LIMIT 1'); $stmt->execute([(int)$user['id'], (int)$user['tenant_id']]); }
             else { $stmt = $db->prepare('SELECT password_hash FROM users WHERE id=? AND tenant_id IS NULL LIMIT 1'); $stmt->execute([(int)$user['id']]); }
             $hash = $stmt->fetchColumn();
             if (!$hash || !password_verify($current, (string)$hash)) { Http::fail('A senha atual não confere.', 401); }
             $novoHash = password_hash($next, PASSWORD_DEFAULT);
-            $db->prepare('UPDATE users SET password_hash=?,must_change_password=0 WHERE id=?')->execute([$novoHash, (int)$user['id']]);
+            $db->prepare('UPDATE users SET password_hash=?,must_change_password=0,senha_inicial_ate=NULL WHERE id=?')->execute([$novoHash, (int)$user['id']]);
             // Esta sessão continua; as abertas em outros aparelhos são encerradas
             session_regenerate_id(true); $_SESSION['user']['pw'] = Security::assinaturaSenha($novoHash); Security::forget();
             $_SESSION['_csrf'] = bin2hex(random_bytes(32));
@@ -154,9 +153,10 @@ final class ApiController
 
         if ($path === '/api/auth/login') {
             if ($method !== 'POST') { Http::fail('Método não permitido.', 405); }
-            $email = strtolower(trim((string) ($input['email'] ?? '')));
+            $email = strtolower(trim((string) ($input['email'] ?? '')));   // e-mail OU usuário (ex.: cleiton.santos)
             $password = (string) ($input['password'] ?? '');
-            if (!filter_var($email, FILTER_VALIDATE_EMAIL) || $password === '') { Http::fail('E-mail ou senha inválidos.', 401); }
+            $porEmail = (bool) filter_var($email, FILTER_VALIDATE_EMAIL);
+            if ((!$porEmail && !preg_match('/^[a-z0-9._-]{3,80}$/', $email)) || $password === '') { Http::fail('Usuário ou senha inválidos.', 401); }
             $key = hash('sha256', $email . '|' . Security::clientIp()); // IP real (atrás do proxy do Render/Fly)
             $limit = $db->prepare('SELECT attempts, window_started_at, locked_until FROM login_attempts WHERE identifier_hash = ?');
             $limit->execute([$key]);
@@ -164,19 +164,24 @@ final class ApiController
             if ($attempt && !empty($attempt['locked_until']) && strtotime((string) $attempt['locked_until']) > time()) {
                 Http::fail('Muitas tentativas. Aguarde alguns minutos e tente novamente.', 429);
             }
-            $stmt = $db->prepare("SELECT u.id, u.tenant_id, u.name, u.email, u.password_hash, u.role, u.active, u.must_change_password, t.name AS tenant_name, t.slug AS tenant_slug, t.status AS tenant_status FROM users u LEFT JOIN tenants t ON t.id = u.tenant_id WHERE u.email = ? LIMIT 1");
+            $stmt = $db->prepare("SELECT u.id, u.tenant_id, u.name, u.email, u.password_hash, u.role, u.active, u.must_change_password, (u.senha_inicial_ate IS NOT NULL AND u.senha_inicial_ate < NOW()) AS senha_vencida, t.name AS tenant_name, t.slug AS tenant_slug, t.status AS tenant_status FROM users u LEFT JOIN tenants t ON t.id = u.tenant_id WHERE " . ($porEmail ? 'u.email = ?' : 'u.username = ?') . " LIMIT 1");
             $stmt->execute([$email]);
             $row = $stmt->fetch();
             $valid = $row && (int) $row['active'] === 1 && password_verify($password, (string) $row['password_hash']);
             if ($valid && $row['tenant_id'] !== null && $row['tenant_status'] === 'suspended') { $valid = false; }
             if (!$valid) {
                 self::recordLoginFailure($db, $key, $attempt);
-                Http::fail('E-mail ou senha inválidos.', 401);
+                Http::fail('Usuário ou senha inválidos.', 401);
+            }
+            // Senha inicial vale por tempo limitado: depois disso, só com um novo acesso enviado pelo administrador
+            // Comparação feita no próprio banco (NOW() do banco): evita diferença de fuso entre o PHP e o TiDB
+            if ((int) $row['must_change_password'] === 1 && (int) $row['senha_vencida'] === 1) {
+                Http::fail('A senha inicial expirou. Peça ao administrador para reenviar o acesso (ou use "Esqueci minha senha").', 401);
             }
             $db->prepare('DELETE FROM login_attempts WHERE identifier_hash = ?')->execute([$key]);
             $db->prepare('UPDATE users SET last_login_at = NOW() WHERE id = ?')->execute([(int) $row['id']]);
             $pw = Security::assinaturaSenha((string) $row['password_hash']);
-            unset($row['password_hash'], $row['active'], $row['tenant_status']);
+            unset($row['password_hash'], $row['active'], $row['tenant_status'], $row['senha_vencida']);
             self::loginSession($row);
             $_SESSION['user']['pw'] = $pw; Security::forget();
             Http::respond(['ok' => true, 'user' => Security::user(), 'csrf' => Security::csrfToken()]);
@@ -261,7 +266,7 @@ final class ApiController
     private static function platformTenants(PDO $db, array $user): never
     {
         if (($user['role'] ?? '') !== 'platform_admin' || !empty($user['tenant_id'])) { Http::fail('Acesso restrito à administração da plataforma.', 403); }
-        $stmt = $db->query('SELECT t.id,t.name,t.slug,t.plan,t.status,t.created_at,COUNT(u.id) AS users_count,(SELECT COUNT(*) FROM legal_cases c WHERE c.tenant_id=t.id) AS cases_count FROM tenants t LEFT JOIN users u ON u.tenant_id=t.id GROUP BY t.id ORDER BY t.created_at DESC LIMIT 200');
+        $stmt = $db->query('SELECT t.id,t.name,t.slug,t.plan,t.status,t.created_at,COUNT(u.id) AS users_count,(SELECT COUNT(*) FROM legal_cases c WHERE c.tenant_id=t.id) AS cases_count FROM tenants t LEFT JOIN users u ON u.tenant_id=t.id AND u.suporte=0 GROUP BY t.id ORDER BY t.created_at DESC LIMIT 200');
         Http::respond(['tenants' => $stmt->fetchAll()]);
     }
 
@@ -427,9 +432,9 @@ final class ApiController
 
     private static function team(PDO $db, array $user, int $tenant, ?int $id, string $method): never
     {
-        if ($method==='GET') { Security::requireRole(['owner','admin','lawyer']);$stmt=$db->prepare('SELECT id,name,email,role,active,last_login_at,created_at FROM users WHERE tenant_id=? ORDER BY active DESC,name');$stmt->execute([$tenant]);Http::respond(['items'=>$stmt->fetchAll()]); }
-        if ($method==='POST'&&!$id) { Security::requireRole(['owner','admin']);$in=Http::json();$name=Http::requiredString($in,'name',180);$email=strtolower(Http::requiredString($in,'email',190));if(!filter_var($email,FILTER_VALIDATE_EMAIL))Http::fail('E-mail inválido.');$role=self::enumValue($in,'role',['admin','lawyer','staff','finance','viewer'],'staff');$temporary=bin2hex(random_bytes(7));try{$stmt=$db->prepare('INSERT INTO users (tenant_id,name,email,password_hash,role,active,must_change_password) VALUES (?,?,?,?,?,1,1)');$stmt->execute([$tenant,$name,$email,password_hash($temporary,PASSWORD_DEFAULT),$role]);}catch(Throwable $e){if((string)$e->getCode()==='23000')Http::fail('Este e-mail já está cadastrado.',409);throw $e;}$newId=(int)$db->lastInsertId();Security::audit($db,$user,'invited','user',$newId);Http::respond(['id'=>$newId,'temporary_password'=>$temporary,'message'=>'Compartilhe a senha inicial por um canal seguro. A troca de senha deve ser ativada antes do uso em produção.'],201); }
-        if ($method==='PUT'&&$id) { Security::requireRole(['owner','admin']);if($id===(int)$user['id'])Http::fail('Não é possível desativar a própria conta.');$in=Http::json();$active=!empty($in['active'])?1:0;$stmt=$db->prepare('UPDATE users SET active=? WHERE tenant_id=? AND id=?');$stmt->execute([$active,$tenant,$id]);if(!$stmt->rowCount())self::assertOwned($db,'users',$tenant,$id);Security::audit($db,$user,$active?'activated':'deactivated','user',$id);Http::respond(['ok'=>true]); }
+        if ($method==='GET') { Security::requireRole(['owner','admin','lawyer']);$stmt=$db->prepare('SELECT id,name,email,role,active,last_login_at,created_at FROM users WHERE tenant_id=? AND suporte=0 ORDER BY active DESC,name');$stmt->execute([$tenant]);Http::respond(['items'=>$stmt->fetchAll()]); }
+        if ($method==='POST'&&!$id) { Security::requireRole(['owner','admin']);$in=Http::json();$name=Http::requiredString($in,'name',180);$email=strtolower(Http::requiredString($in,'email',190));if(!filter_var($email,FILTER_VALIDATE_EMAIL))Http::fail('E-mail inválido.');$role=self::enumValue($in,'role',['admin','lawyer','staff','finance','viewer'],'staff');$temporary=bin2hex(random_bytes(7));try{$stmt=$db->prepare('INSERT INTO users (tenant_id,name,email,password_hash,role,active,must_change_password,senha_inicial_ate) VALUES (?,?,?,?,?,1,1,NOW() + INTERVAL '.Security::DIAS_SENHA_INICIAL.' DAY)');$stmt->execute([$tenant,$name,$email,password_hash($temporary,PASSWORD_DEFAULT),$role]);}catch(Throwable $e){if((string)$e->getCode()==='23000')Http::fail('Este e-mail já está cadastrado.',409);throw $e;}$newId=(int)$db->lastInsertId();Security::audit($db,$user,'invited','user',$newId);Http::respond(['id'=>$newId,'temporary_password'=>$temporary,'message'=>'Senha inicial desta pessoa (vale '.Security::DIAS_SENHA_INICIAL.' dias; a troca é pedida no primeiro acesso). Envie por um canal seguro.'],201); }
+        if ($method==='PUT'&&$id) { Security::requireRole(['owner','admin']);if($id===(int)$user['id'])Http::fail('Não é possível desativar a própria conta.');$sp=$db->prepare('SELECT suporte FROM users WHERE tenant_id=? AND id=?');$sp->execute([$tenant,$id]);if((int)$sp->fetchColumn()===1)Http::fail('Registro não encontrado.',404);$in=Http::json();$active=!empty($in['active'])?1:0;$stmt=$db->prepare('UPDATE users SET active=? WHERE tenant_id=? AND id=?');$stmt->execute([$active,$tenant,$id]);if(!$stmt->rowCount())self::assertOwned($db,'users',$tenant,$id);Security::audit($db,$user,$active?'activated':'deactivated','user',$id);Http::respond(['ok'=>true]); }
         Http::fail('Método não permitido.',405);
     }
 
@@ -552,7 +557,7 @@ final class ApiController
         if (!$uid) Http::fail('Link inválido ou expirado. Peça um novo.', 400);
         if (strlen($nova) < 12 || strlen($nova) > 200) Http::fail('A nova senha precisa ter entre 12 e 200 caracteres.');
         // must_change_password=0: a pessoa acabou de escolher a própria senha. Sessões antigas caem (assinatura da senha muda).
-        $db->prepare('UPDATE users SET password_hash=?, must_change_password=0 WHERE id=?')->execute([password_hash($nova, PASSWORD_DEFAULT), (int) $uid]);
+        $db->prepare('UPDATE users SET password_hash=?, must_change_password=0, senha_inicial_ate=NULL WHERE id=?')->execute([password_hash($nova, PASSWORD_DEFAULT), (int) $uid]);
         $db->prepare('UPDATE password_resets SET used_at=UTC_TIMESTAMP() WHERE user_id=? AND used_at IS NULL')->execute([(int) $uid]);
         Http::respond(['ok' => true, 'message' => 'Senha criada. Entre com o seu e-mail e a nova senha.']);
     }
@@ -590,7 +595,7 @@ final class ApiController
             $db->beginTransaction();
             $db->prepare("INSERT INTO tenants (name,slug,plan,status) VALUES (?,?,?,'active')")->execute([$office, $slug, $plan]);
             $tid = (int) $db->lastInsertId();
-            $db->prepare("INSERT INTO users (tenant_id,name,email,password_hash,role,active,must_change_password) VALUES (?,?,?,?,'owner',1,0)")->execute([$tid, $name, $email, password_hash(bin2hex(random_bytes(24)), PASSWORD_DEFAULT)]);
+            $db->prepare("INSERT INTO users (tenant_id,name,email,password_hash,role,active,must_change_password,senha_inicial_ate) VALUES (?,?,?,?,'owner',1,1,NOW() + INTERVAL " . Security::DIAS_SENHA_INICIAL . " DAY)")->execute([$tid, $name, $email, password_hash(Security::senhaPadrao(), PASSWORD_DEFAULT)]);
             $uid = (int) $db->lastInsertId();
             $db->prepare('INSERT INTO tenant_settings (tenant_id,timezone,language,settings_text) VALUES (?,?,?,?)')->execute([$tid, 'America/Sao_Paulo', 'pt-BR', '{"currency":"BRL"}']);
             $link = self::criarLinkSenha($db, $uid, 48);
@@ -600,9 +605,9 @@ final class ApiController
             if ((string) $e->getCode() === '23000') Http::fail('Este e-mail já está cadastrado em outro escritório.', 409);
             throw $e;
         }
-        self::emailSenha($email, $name, 'Acesso ao LexCloud — ' . $office, 'A conta do escritório ' . $office . ' foi criada e você é o responsável. Crie a sua senha para acessar.', $link, '48 horas');
+        self::emailSenha($email, $name, 'Acesso ao LexCloud — ' . $office, 'A conta do escritório ' . $office . ' foi criada e você é o responsável. Entre com o seu e-mail e a senha inicial informada pela CHS (a troca é pedida no primeiro acesso), ou crie a sua senha agora pelo botão abaixo.', $link, '48 horas');
         Security::audit($db, ['id' => $user['id'], 'tenant_id' => $tid], 'platform:tenant_created', 'tenant', $tid);
-        Http::respond(['ok' => true, 'id' => $tid, 'invite_link' => $link, 'message' => 'Escritório criado e convite enviado para ' . $email . '.'], 201);
+        Http::respond(['ok' => true, 'id' => $tid, 'invite_link' => $link, 'message' => 'Escritório criado. O responsável entra com ' . $email . ' e a senha padrão (troca obrigatória no primeiro acesso, vale ' . Security::DIAS_SENHA_INICIAL . ' dias). Convite também enviado por e-mail.'], 201);
     }
 
     private static function platformTenantAction(PDO $db, array $user, int $tid, string $acao): never
@@ -619,14 +624,16 @@ final class ApiController
         if ($acao === 'invite') {
             $o = $db->prepare("SELECT id,name,email FROM users WHERE tenant_id=? AND role='owner' AND active=1 ORDER BY id LIMIT 1"); $o->execute([$tid]); $owner = $o->fetch();
             if (!$owner) Http::fail('Este escritório não tem responsável ativo.', 404);
+            $db->prepare("UPDATE users SET password_hash=?, must_change_password=1, senha_inicial_ate=NOW() + INTERVAL " . Security::DIAS_SENHA_INICIAL . " DAY WHERE id=?")->execute([password_hash(Security::senhaPadrao(), PASSWORD_DEFAULT), (int) $owner['id']]);
             $link = self::criarLinkSenha($db, (int) $owner['id'], 48);
-            self::emailSenha((string) $owner['email'], (string) $owner['name'], 'Acesso ao LexCloud — ' . $t['name'], 'Enviamos um novo link para você criar a sua senha.', $link, '48 horas');
+            self::emailSenha((string) $owner['email'], (string) $owner['name'], 'Acesso ao LexCloud — ' . $t['name'], 'Seu acesso foi renovado: entre com o seu e-mail e a senha inicial informada pela CHS (a troca é pedida no primeiro acesso), ou crie a sua senha pelo botão abaixo.', $link, '48 horas');
             Security::audit($db, ['id' => $user['id'], 'tenant_id' => $tid], 'platform:invite_resent', 'user', (int) $owner['id']);
-            Http::respond(['ok' => true, 'invite_link' => $link, 'message' => 'Novo convite enviado para ' . $owner['email'] . '.']);
+            Http::respond(['ok' => true, 'invite_link' => $link, 'message' => 'Acesso renovado: ' . $owner['email'] . ' volta para a senha padrão (troca obrigatória, vale ' . Security::DIAS_SENHA_INICIAL . ' dias). Convite também enviado por e-mail.']);
         }
         // support
         $_SESSION['support_tenant'] = $tid; Security::forget();
-        Security::audit($db, ['id' => $user['id'], 'tenant_id' => $tid], 'platform:support_started', 'tenant', $tid);
+        Security::usuarioSuporte($db, $tid);
+        Security::audit($db, ['id' => Security::usuarioSuporte($db, $tid), 'tenant_id' => $tid], 'platform:acesso_chs_' . preg_replace('/[^a-z0-9._-]/', '', strtolower((string) ($user['email'] ?? ''))), 'tenant', $tid);
         Http::respond(['ok' => true, 'user' => Security::user()]);
     }
 

@@ -23,12 +23,16 @@ CREATE TABLE IF NOT EXISTS users (
   role VARCHAR(32) NOT NULL DEFAULT 'staff',
   active TINYINT(1) NOT NULL DEFAULT 1,
   must_change_password TINYINT(1) NOT NULL DEFAULT 0,
+  username VARCHAR(80) NULL,
+  senha_inicial_ate DATETIME NULL,
+  suporte TINYINT(1) NOT NULL DEFAULT 0,
   last_login_at DATETIME NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
   UNIQUE KEY uq_users_tenant_id (tenant_id, id),
   UNIQUE KEY uq_users_email (email),
+  UNIQUE KEY uq_users_username (username),
   KEY idx_users_tenant_active (tenant_id, active, role),
   CONSTRAINT fk_users_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

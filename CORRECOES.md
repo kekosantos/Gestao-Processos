@@ -27,3 +27,25 @@ O layout e as funcionalidades foram mantidos. As mudanças são de segurança, d
 ## Testes
 - `tests/integration_http.py`: a bateria original, **13 de 13**. Rode com `ALLOW_SIGNUP=true`, porque ela usa o autocadastro.
 - `tests/correcoes_http.py`: **35 de 35**, cobrindo tudo o que está acima, com e-mail real por SMTP de teste.
+
+
+## v2.1: acesso inicial, demo e login no celular
+- **Admin da plataforma criado sozinho:** usuário `cleiton.santos`, senha padrão, troca obrigatória. `ADMIN_REDEFINIR=true` recupera um admin existente.
+- **Login por e-mail ou usuário.**
+- **Senha padrão (`SENHA_PADRAO`, sem ela vale `password`)** para as contas criadas pela plataforma:
+  - troca obrigatória no primeiro acesso;
+  - validade de 7 dias, verificada no banco para não sofrer com diferença de fuso;
+  - não pode ser repetida como senha nova.
+- **Equipe criada pelo escritório:** mantém uma senha temporária própria, para que um escritório não conheça a senha inicial dos outros.
+- **Escritório DEMO com dados fictícios**, criado junto com a migração, só uma vez.
+- **Banco que já existia:** a migração acrescenta as colunas novas sem apagar nada. Isso foi testado num banco no formato antigo, com dados.
+- **Login no tablet e no celular:** a faixa do sistema fica compacta em cima, e o formulário aparece inteiro sem rolar. No computador, nada muda.
+- **Saudação do painel:** ignora títulos ("Bom dia, Helena", e não "Bom dia, Dra.").
+- **Testes:** `tests/senha_demo_http.py`, com 26 verificações. Total: 74.
+
+
+## v2.2: acesso da CHS igual ao Gestão de Notas
+- **No painel da plataforma**, clicar no nome do escritório ou em **"Acessar"** abre o **dashboard dele**, com **acesso completo**, e "Voltar ao painel" retorna. É o mesmo esquema do "Dashboard" do Gestão de Notas.
+- **Autoria:** o que a CHS faz lá dentro fica em nome do usuário oculto **"Suporte CHS"** do escritório. Ele não aparece na equipe, não entra pelo login e não conta nos usuários, mas deixa claro na auditoria o que foi feito pela CHS. A entrada também é registrada, com o e-mail de quem acessou.
+- **Trocar senha:** dentro do escritório, não é possível (a conta de suporte não tem senha).
+- **Testes:** `correcoes_http.py` passou a ter 42 verificações. Total: 81.
