@@ -1,3 +1,15 @@
+# Trocar para os nomes padrão (quem já está no ar com MYSQL_*)
+No Render, em Environment, crie as variáveis novas com os **mesmos valores** das antigas, salve, confira que o sistema entrou, e só então apague as antigas:
+
+| Antiga | Nova |
+|---|---|
+| `MYSQL_HOST` | `DB_HOST` |
+| `MYSQL_PORT` | `DB_PORT` (4000) |
+| `MYSQL_DATABASE` | `DB_NAME` |
+| `MYSQL_USER` | `DB_USER` |
+| `MYSQL_PASSWORD` | `DB_PASS` |
+| `MYSQL_SSL_CA` | `DB_SSL=true` |
+
 # Primeiro acesso (v2.1)
 
 - **Seu acesso é criado sozinho** quando o sistema inicia: usuário **`cleiton.santos`**, senha **`password`** (ou o valor da variável `SENHA_PADRAO`). O sistema **pede a troca** no primeiro acesso, e a senha inicial vale 7 dias.
@@ -12,13 +24,15 @@
 
 1. **Banco (TiDB):** crie o banco `lexcloud`. As tabelas são criadas sozinhas pelo sistema: no Render ao iniciar, no Fly pelo `release_command`. Se preferir, rode `database/schema.sql` no SQL Editor.
 2. **Render** (validação): o `render.yaml` já está no plano gratuito. Em Environment, cadastre:
-   - `DATABASE_URL=mysqls://USUARIO:SENHA@HOST:4000/lexcloud`. O `mysqls` ativa o TLS que o TiDB exige, e a senha vai com caracteres especiais codificados.
+   - Banco, **com os mesmos nomes dos outros sistemas CHS:** `DB_HOST`, `DB_PORT=4000`, `DB_NAME=lexcloud`, `DB_USER` (usuário completo, com prefixo), `DB_PASS` e `DB_SSL=true`. Os nomes antigos (`DATABASE_URL` e `MYSQL_*`) continuam funcionando.
    - `APP_URL=https://<serviço>.onrender.com`, sem barra no fim. É usado nos links dos e-mails.
    - `SETUP_TOKEN` (24 ou mais caracteres) e os `MAIL_*` (mesmo Gmail dos outros sistemas).
    - `TRUST_PROXY` e `RUN_MIGRATIONS` já estão no `render.yaml`.
 3. **Primeiro acesso:** abra `https://<serviço>/#/instalar`, crie o admin da plataforma e **apague o `SETUP_TOKEN`**.
 4. **Escritórios:** no painel, use **"+ Novo escritório"**. O responsável recebe o convite por e-mail.
 5. **Fly** (produção): use o `fly.toml` e cadastre os secrets de `deploy/fly-secrets.example`.
+
+> **Erro `[1105] insecure transport`?** O TiDB exige conexão criptografada. A partir da v2.2.1, o sistema liga o TLS sozinho quando o host é `*.tidbcloud.com`; `DB_SSL=true` também liga. Em versões anteriores, cadastre `MYSQL_SSL_CA=/etc/ssl/certs/ca-certificates.crt`.
 
 > **Erro de banco no Render?** O log agora mostra o motivo real na linha `LexCloud database connection failed [código]: ...`.
 > `[1049]` o banco `lexcloud` não existe (rode o `CREATE DATABASE`); `[1045]` usuário ou senha recusados (o usuário do TiDB é o completo, com prefixo, ex.: `23Pxxxx.root`);

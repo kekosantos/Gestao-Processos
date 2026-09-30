@@ -49,3 +49,9 @@ O layout e as funcionalidades foram mantidos. As mudanças são de segurança, d
 - **Autoria:** o que a CHS faz lá dentro fica em nome do usuário oculto **"Suporte CHS"** do escritório. Ele não aparece na equipe, não entra pelo login e não conta nos usuários, mas deixa claro na auditoria o que foi feito pela CHS. A entrada também é registrada, com o e-mail de quem acessou.
 - **Trocar senha:** dentro do escritório, não é possível (a conta de suporte não tem senha).
 - **Testes:** `correcoes_http.py` passou a ter 42 verificações. Total: 81.
+
+
+## v2.2.1: banco com os nomes padrão da CHS
+- **Nomes iguais ao Gestão de Notas:** `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASS` e `DB_SSL`. Os nomes antigos (`DATABASE_URL` e `MYSQL_*`) continuam aceitos.
+- **TLS ligado sozinho** quando o host é do TiDB (`*.tidbcloud.com`) ou com `DB_SSL=true`. Isso corrige o erro `[1105] Connections using insecure transport are prohibited`.
+- **Testes:** passam com os nomes novos e com os antigos.

@@ -1,5 +1,8 @@
 # Instalação e implantação do LexCloud
 
+> **Padrão CHS:** o banco usa `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASS` e `DB_SSL` (os mesmos nomes do Gestão de Notas e da Gestão Financeira). `DATABASE_URL` e `MYSQL_*` continuam aceitos, por compatibilidade.
+
+
 ## Requisitos
 
 - PHP 8.3; extensões `pdo_mysql`, `mbstring` e `fileinfo`.
@@ -26,11 +29,12 @@ Copie `.env.example` para `.env` e preencha apenas no ambiente de execução:
 ```dotenv
 APP_ENV=development
 APP_TIMEZONE=America/Sao_Paulo
-MYSQL_HOST=127.0.0.1
-MYSQL_PORT=3306
-MYSQL_DATABASE=lexcloud
-MYSQL_USER=lexcloud
-MYSQL_PASSWORD=senha-local
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_NAME=lexcloud
+DB_USER=lexcloud
+DB_PASS=senha-local
+DB_SSL=false
 MYSQL_SSL_CA=
 ```
 

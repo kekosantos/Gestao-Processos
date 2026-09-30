@@ -1,5 +1,8 @@
 # Deploy do LexCloud no Render
 
+> **Padrão CHS:** o banco usa `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASS` e `DB_SSL` (os mesmos nomes do Gestão de Notas e da Gestão Financeira). `DATABASE_URL` e `MYSQL_*` continuam aceitos, por compatibilidade.
+
+
 ## Antes de começar
 
 - Conta Render e um repositório Git privado com o projeto extraído do ZIP. O Render cria o serviço a partir de um repositório conectado; não envie `.env` nem segredos ao Git.
@@ -39,7 +42,7 @@ O arquivo `render.yaml` já declara container Docker, uma instância paga `0.5c-
 
 1. No Render Dashboard, escolha **New → Blueprint** e conecte o repositório/branch `main`.
 2. Revise `render.yaml`. Escolha uma região adequada à localização do banco e dos usuários; manter aplicação e banco próximos reduz latência.
-3. Ao sincronizar o Blueprint, informe `DATABASE_URL` quando o Render solicitar o valor de `sync: false`. Use a URL TLS completa do passo 1.
+3. Ao sincronizar o Blueprint, informe `DB_HOST`, `DB_USER` e `DB_PASS` (e `SENHA_PADRAO`, se quiser) quando o Render solicitar o valor de `sync: false`. Use a URL TLS completa do passo 1.
 4. Revise a instância e os custos na tela do Render antes de confirmar a criação.
 5. O Render constrói o `Dockerfile`, executa `php bin/migrate.php` no pre-deploy e só então inicia a aplicação. A migração é aditiva (`CREATE TABLE IF NOT EXISTS`); ainda assim, mantenha backups antes de alterações operacionais.
 6. Aguarde o deploy e confirme `GET https://SEU_SERVICO.onrender.com/api/health` com resposta HTTP 200. O health check valida banco, extensões PHP e limites de upload; erro 503 geralmente indica URL/TLS, permissões da migração, rede do provedor ou `MAX_UPLOAD_BYTES` inválido.

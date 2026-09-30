@@ -16,7 +16,13 @@ services:
       - { key: RUN_MIGRATIONS, value: "true" }
       - { key: TRUST_PROXY, value: "true" }     # IP real atrás do proxy (bloqueio de login e auditoria)
       - { key: APP_URL, sync: false }           # https://<serviço>.onrender.com (sem barra no fim) — usado nos links de e-mail
-      - { key: DATABASE_URL, sync: false }      # mysqls://USUARIO:SENHA@HOST:4000/lexcloud  (TiDB: mysqls = com TLS)
+      - { key: DB_HOST, sync: false }           # host do TiDB (o mesmo dos outros sistemas)
+      - { key: DB_PORT, value: "4000" }
+      - { key: DB_NAME, value: lexcloud }
+      - { key: DB_USER, sync: false }           # usuário COMPLETO do TiDB, com o prefixo (ex.: 23Pxxxx.root)
+      - { key: DB_PASS, sync: false }
+      - { key: DB_SSL, value: "true" }          # TiDB exige conexão criptografada
+      - { key: SENHA_PADRAO, sync: false }      # senha inicial das contas criadas pela CHS (vazia = "password")
       - { key: SETUP_TOKEN, sync: false }       # só para criar o admin da plataforma; apague depois
       - { key: MAIL_HOST, sync: false }
       - { key: MAIL_PORT, sync: false }
