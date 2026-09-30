@@ -1,3 +1,11 @@
+# Variáveis obrigatórias no Render (confira!)
+| Variável | Valor | Se estiver errada |
+|---|---|---|
+| `RUN_MIGRATIONS` | **`true`** | as tabelas e colunas novas não são criadas (erro `Unknown column`), nem o admin e a demo |
+| `TRUST_PROXY` | **`true`** | o bloqueio de login pega o IP do proxy, o mesmo para todos |
+| `APP_URL` | `https://<serviço>.onrender.com` | os links dos e-mails e a **biometria** não funcionam |
+| `DB_HOST`, `DB_PORT` (4000), `DB_NAME`, `DB_USER`, `DB_PASS`, `DB_SSL` (true) | banco | erro de conexão |
+
 # Trocar para os nomes padrão (quem já está no ar com MYSQL_*)
 No Render, em Environment, crie as variáveis novas com os **mesmos valores** das antigas, salve, confira que o sistema entrou, e só então apague as antigas:
 

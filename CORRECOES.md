@@ -55,3 +55,15 @@ O layout e as funcionalidades foram mantidos. As mudanças são de segurança, d
 - **Nomes iguais ao Gestão de Notas:** `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASS` e `DB_SSL`. Os nomes antigos (`DATABASE_URL` e `MYSQL_*`) continuam aceitos.
 - **TLS ligado sozinho** quando o host é do TiDB (`*.tidbcloud.com`) ou com `DB_SSL=true`. Isso corrige o erro `[1105] Connections using insecure transport are prohibited`.
 - **Testes:** passam com os nomes novos e com os antigos.
+
+
+## v2.3: biometria (digital, Face ID, Windows Hello)
+- **Mesmo motor do Gestão de Notas:** assinatura verificada (ES256 e RS256), desafio de uso único, origem e domínio conferidos, biometria obrigatória e contador contra clonagem.
+- **Login:** botão "Entrar com digital ou Face ID". O sistema **não lista** as contas cadastradas; é o próprio aparelho que oferece a conta.
+- **Tela "Biometria"** (menu, embaixo): cadastrar este aparelho, listar e remover. Vale para todos os usuários, inclusive o admin da plataforma.
+- **Mesmas regras do login por senha:** conta desativada, escritório suspenso ou senha trocada derrubam o acesso. A conta oculta "Suporte CHS" nunca entra.
+- **O banco guarda só a chave pública.**
+- **Testes:**
+  - `tests/biometria_http.py`, com 33 verificações nos dois tipos de aparelho, incluindo assinatura falsa, clonagem, reuso da resposta, site falso e contador;
+  - teste no navegador com o autenticador virtual do Chrome: cadastrar, sair e entrar.
+- **Observação:** a biometria só funciona em endereço com nome (`*.onrender.com`, `*.fly.dev`, domínio próprio). Não funciona em IP. Confira se o `APP_URL` é o endereço público.

@@ -254,3 +254,18 @@ CREATE TABLE IF NOT EXISTS password_resets (
   KEY idx_resets_user (user_id, created_at),
   CONSTRAINT fk_resets_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Biometria (digital, Face ID, Windows Hello): só a CHAVE PÚBLICA do aparelho fica no banco
+CREATE TABLE IF NOT EXISTS webauthn_credentials (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  user_id BIGINT UNSIGNED NOT NULL,
+  credential_id VARCHAR(255) NOT NULL,
+  public_key TEXT NOT NULL,
+  sign_count BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  device_name VARCHAR(120) NOT NULL DEFAULT 'Aparelho',
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  last_used_at DATETIME NULL,
+  UNIQUE KEY uq_webauthn_credential (credential_id),
+  KEY idx_webauthn_user (user_id),
+  CONSTRAINT fk_webauthn_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

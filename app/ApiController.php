@@ -6,6 +6,7 @@ namespace LexCloud;
 use LexCloud\Support\Database;
 use LexCloud\Support\Http;
 use LexCloud\Support\Security;
+use LexCloud\Support\WebAuthn;
 use PDO;
 use Throwable;
 
@@ -42,6 +43,11 @@ final class ApiController
             if ($method !== 'POST') { Http::fail('Método não permitido.', 405); }
             Security::verifyCsrf();
             self::platformSetup();
+        }
+
+        // Biometria: o próprio bloco confere método, CSRF (nos POST/DELETE) e login (no cadastro e na lista)
+        if (str_starts_with($path, '/api/auth/webauthn/')) {
+            self::auth($path, $method);
         }
 
         if (in_array($path, ['/api/auth/login', '/api/auth/register', '/api/auth/logout', '/api/auth/change-password', '/api/auth/forgot', '/api/auth/reset'], true)) {
@@ -149,6 +155,87 @@ final class ApiController
             Security::forget();
             Security::audit($db, Security::user() ?? [], 'tenant_created', 'tenant', $tenantId);
             Http::respond(['ok' => true, 'user' => Security::user(), 'csrf' => Security::csrfToken()], 201);
+        }
+
+        // ── Biometria (mesmo motor do Gestão de Notas) ─────────────────────────
+        if ($path === '/api/auth/webauthn/login-options' && $method === 'GET') {
+            // Não lista credenciais de ninguém: o aparelho oferece as contas que ele mesmo guarda
+            // Vai junto um token CSRF novo: depois de "Sair", a tela ainda tinha o token da sessão encerrada
+            Http::respond((new WebAuthn())->getAuthenticationOptions() + ['csrf' => Security::csrfToken()]);
+        }
+        if ($path === '/api/auth/webauthn/login-verify' && $method === 'POST') {
+            Security::verifyCsrf();
+            $cred = is_array($input['credential'] ?? null) ? $input['credential'] : $input;
+            $credId = (string) ($cred['rawId'] ?? $cred['id'] ?? '');
+            $key = hash('sha256', 'biometria|' . Security::clientIp());
+            $limit = $db->prepare('SELECT attempts, window_started_at, locked_until FROM login_attempts WHERE identifier_hash = ?');
+            $limit->execute([$key]);
+            $attempt = $limit->fetch() ?: null;
+            if ($attempt && !empty($attempt['locked_until']) && strtotime((string) $attempt['locked_until']) > time()) {
+                Http::fail('Muitas tentativas. Aguarde alguns minutos e tente novamente.', 429);
+            }
+            $st = $db->prepare("SELECT w.id AS wid, w.public_key, w.sign_count, u.id, u.tenant_id, u.name, u.email, u.password_hash, u.role, u.must_change_password, u.active, u.suporte, t.name AS tenant_name, t.slug AS tenant_slug, t.status AS tenant_status
+                                FROM webauthn_credentials w JOIN users u ON u.id = w.user_id LEFT JOIN tenants t ON t.id = u.tenant_id WHERE w.credential_id = ? LIMIT 1");
+            $st->execute([$credId]);
+            $row = $st->fetch() ?: null;
+            try {
+                if (!$row) throw new \Exception('Biometria não cadastrada neste sistema. Entre com a senha e cadastre o aparelho.');
+                $r = (new WebAuthn())->verifyAuthentication($cred, (string) $row['public_key'], (int) $row['sign_count']);
+            } catch (\Throwable $e) {
+                self::recordLoginFailure($db, $key, $attempt);
+                Http::fail($e->getMessage(), 401);
+            }
+            // Mesmas regras do login por senha: conta ativa, escritório não suspenso, nunca a conta oculta de suporte
+            if ((int) $row['active'] !== 1 || (int) $row['suporte'] === 1 || ($row['tenant_id'] !== null && $row['tenant_status'] === 'suspended')) {
+                Http::fail('Acesso não permitido para esta conta.', 401);
+            }
+            $db->prepare('DELETE FROM login_attempts WHERE identifier_hash = ?')->execute([$key]);
+            $db->prepare('UPDATE webauthn_credentials SET sign_count = ?, last_used_at = NOW() WHERE id = ?')->execute([(int) $r['sign_count'], (int) $row['wid']]);
+            $db->prepare('UPDATE users SET last_login_at = NOW() WHERE id = ?')->execute([(int) $row['id']]);
+            $pw = Security::assinaturaSenha((string) $row['password_hash']);
+            unset($row['wid'], $row['public_key'], $row['sign_count'], $row['password_hash'], $row['active'], $row['suporte'], $row['tenant_status']);
+            self::loginSession($row);
+            $_SESSION['user']['pw'] = $pw; Security::forget();
+            Security::audit($db, Security::user() ?? [], 'login_biometria', 'user', (int) $row['id']);
+            Http::respond(['ok' => true, 'user' => Security::user(), 'csrf' => Security::csrfToken()]);
+        }
+        if (str_starts_with($path, '/api/auth/webauthn/')) {
+            $user = Security::requireUser();
+            if (!empty($user['support'])) { Http::fail('No acesso da CHS não se cadastra biometria. Volte ao painel para usar a sua.', 403); }
+            if (!empty($user['must_change_password'])) { Http::fail('Troque sua senha temporária antes de cadastrar a biometria.', 403); }
+            $uid = (int) $user['id'];
+            if ($path === '/api/auth/webauthn/register-options' && $method === 'GET') {
+                $ids = $db->prepare('SELECT credential_id FROM webauthn_credentials WHERE user_id = ?'); $ids->execute([$uid]);
+                Http::respond((new WebAuthn())->getRegistrationOptions($uid, (string) $user['email'], 'lexcloud', array_column($ids->fetchAll(), 'credential_id')));
+            }
+            if ($path === '/api/auth/webauthn/register-verify' && $method === 'POST') {
+                Security::verifyCsrf();
+                $cred = is_array($input['credential'] ?? null) ? $input['credential'] : $input;
+                try { $r = (new WebAuthn())->verifyRegistration($cred); }
+                catch (\Throwable $e) { Http::fail($e->getMessage(), 400); }
+                if ((int) ($_SESSION['webauthn_reg_user']['id'] ?? 0) !== $uid) { Http::fail('Cadastro iniciado por outra conta. Tente novamente.', 400); }
+                unset($_SESSION['webauthn_reg_user']);
+                $nome = mb_substr(trim((string) ($input['device_name'] ?? '')), 0, 120) ?: 'Aparelho';
+                try {
+                    $db->prepare('INSERT INTO webauthn_credentials (user_id, credential_id, public_key, sign_count, device_name) VALUES (?,?,?,?,?)')
+                       ->execute([$uid, $r['credential_id'], $r['public_key'], (int) $r['sign_count'], $nome]);
+                } catch (\PDOException $e) { Http::fail('Este aparelho já está cadastrado.', 409); }
+                Security::audit($db, $user, 'biometria_cadastrada', 'user', $uid);
+                Http::respond(['ok' => true, 'message' => 'Biometria cadastrada. Na próxima vez, entre com a digital ou o rosto.'], 201);
+            }
+            if ($path === '/api/auth/webauthn/credentials' && $method === 'GET') {
+                $l = $db->prepare('SELECT id, device_name, created_at, last_used_at FROM webauthn_credentials WHERE user_id = ? ORDER BY created_at DESC');
+                $l->execute([$uid]);
+                Http::respond(['items' => $l->fetchAll()]);
+            }
+            if (preg_match('#^/api/auth/webauthn/credentials/(\d+)$#', $path, $wm) && $method === 'DELETE') {
+                Security::verifyCsrf();
+                $d = $db->prepare('DELETE FROM webauthn_credentials WHERE id = ? AND user_id = ?'); $d->execute([(int) $wm[1], $uid]);
+                if (!$d->rowCount()) { Http::fail('Aparelho não encontrado.', 404); }
+                Security::audit($db, $user, 'biometria_removida', 'user', $uid);
+                Http::respond(['ok' => true]);
+            }
+            Http::fail('Rota não encontrada.', 404);
         }
 
         if ($path === '/api/auth/login') {
