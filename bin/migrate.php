@@ -31,6 +31,8 @@ try {
     if (!$temColuna('users', 'suporte')) $db->exec('ALTER TABLE users ADD COLUMN suporte TINYINT(1) NOT NULL DEFAULT 0 AFTER senha_inicial_ate');
     if (!$temIndice('users', 'uq_users_username')) $db->exec('CREATE UNIQUE INDEX uq_users_username ON users (username)');
     $db->exec("INSERT IGNORE INTO schema_migrations (version) VALUES ('2026-09-senha-padrao-usuario')");
+    // Nome do sistema: AdvCloud. A equipe fictícia da demo passa a usar @demo.advcloud (não muda nada fora da demo)
+    $db->exec("UPDATE users SET email = REPLACE(email, '@demo.lexcloud', '@demo.advcloud') WHERE email LIKE '%@demo.lexcloud'");
     echo "Migração concluída. Tabelas atualizadas sem apagar dados existentes.\n";
     // Admin da plataforma e escritório demo (só criam o que ainda não existe)
     require __DIR__ . '/seed.php';

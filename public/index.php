@@ -44,7 +44,7 @@ header('X-Content-Type-Options: nosniff');
 header('Referrer-Policy: strict-origin-when-cross-origin');
 header('Permissions-Policy: camera=(), microphone=(), geolocation=()');
 $csrf = htmlspecialchars(Security::csrfToken(), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
-$title = 'LexCloud — Gestão Jurídica';
+$title = 'AdvCloud — Gestão Jurídica';
 ?><!doctype html>
 <html lang="pt-BR">
 <head>
@@ -57,14 +57,14 @@ $title = 'LexCloud — Gestão Jurídica';
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">
   <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
-  <link rel="stylesheet" href="/assets/app.css?v=25">
-  <script defer src="/assets/app.js?v=25"></script>
+  <link rel="stylesheet" href="/assets/app.css?v=26">
+  <script defer src="/assets/app.js?v=26"></script>
 </head>
 <body>
   <a class="skip-link" href="#main">Pular para o conteúdo</a>
   <main id="main" class="app-root" aria-live="polite">
     <div class="boot-screen"><span class="brand-mark" aria-hidden="true">L</span><p>Preparando seu escritório…</p></div>
   </main>
-  <noscript>O LexCloud precisa de JavaScript habilitado para apresentar os módulos interativos.</noscript>
+  <noscript>O AdvCloud precisa de JavaScript habilitado para apresentar os módulos interativos.</noscript>
 </body>
 </html>

@@ -78,3 +78,10 @@ O layout e as funcionalidades foram mantidos. As mudanças são de segurança, d
 - **iPhone:** o Safari não tem o convite automático, então aparece a instrução **Compartilhar → Adicionar à Tela de Início**.
 - **Já instalado:** quando o sistema é aberto como app, não aparece nada.
 - **Cache:** a versão dos arquivos passou de `?v=2` para `?v=24`. Antes, um celular que já tinha aberto o sistema continuava com o `app.js` antigo guardado pelo service worker.
+
+
+## v2.5: nome exibido AdvCloud
+- **Onde muda:** telas, título da aba, app instalado (manifest), página offline, ícones, e-mails, remetente padrão e nome mostrado na janela da biometria.
+- **O que fica igual, de propósito:** os nomes internos (código `LexCloud\...`, banco `lexcloud`, repositório, serviço no Render e linhas de log). Mudá-los não traria nada ao usuário e só criaria risco.
+- **Demo:** a equipe fictícia passa a usar `@demo.advcloud`, inclusive na demo que já existia (pela migração, sem apagar nada).
+- **Biometria:** as já cadastradas continuam valendo, porque o domínio não mudou.

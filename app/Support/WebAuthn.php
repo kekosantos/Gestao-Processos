@@ -29,7 +29,7 @@ final class WebAuthn
         $port   = parse_url($url, PHP_URL_PORT);
 
         $this->rpId   = $host;
-        $this->rpName = 'LexCloud';
+        $this->rpName = 'AdvCloud';
         // A origem enviada pelo navegador é só esquema://host[:porta], sem caminho nem barra final
         $this->origin = $scheme . '://' . $host . ($port ? ':' . $port : '');
     }

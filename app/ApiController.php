@@ -608,7 +608,7 @@ final class ApiController
 
     private static function emailSenha(string $para, string $nome, string $titulo, string $texto, string $link, string $validade): void
     {
-        $html = '<div style="font-family:Arial,sans-serif;max-width:520px;margin:auto;color:#1f2937"><h2 style="font-size:18px">LexCloud</h2>'
+        $html = '<div style="font-family:Arial,sans-serif;max-width:520px;margin:auto;color:#1f2937"><h2 style="font-size:18px">AdvCloud</h2>'
             . '<p>Olá, ' . htmlspecialchars($nome, ENT_QUOTES) . '.</p><p>' . htmlspecialchars($texto, ENT_QUOTES) . '</p>'
             . '<p style="margin:24px 0"><a href="' . htmlspecialchars($link, ENT_QUOTES) . '" style="display:inline-block;background:#1e3a5f;color:#fff;padding:12px 22px;border-radius:8px;text-decoration:none;font-weight:bold">Criar minha senha</a></p>'
             . '<p style="color:#6b7280;font-size:13px">O link vale por ' . htmlspecialchars($validade, ENT_QUOTES) . ' e só pode ser usado uma vez. Se você não pediu, ignore este e-mail.</p></div>';
@@ -627,7 +627,7 @@ final class ApiController
                 $n->execute([(int) $u['id']]);
                 if ((int) $n->fetchColumn() < 3) {
                     $link = self::criarLinkSenha($db, (int) $u['id'], 1);
-                    self::emailSenha($email, (string) $u['name'], 'Redefinição de senha — LexCloud', 'Recebemos um pedido para redefinir a sua senha.', $link, '1 hora');
+                    self::emailSenha($email, (string) $u['name'], 'Redefinição de senha — AdvCloud', 'Recebemos um pedido para redefinir a sua senha.', $link, '1 hora');
                 }
             }
         }
@@ -692,7 +692,7 @@ final class ApiController
             if ((string) $e->getCode() === '23000') Http::fail('Este e-mail já está cadastrado em outro escritório.', 409);
             throw $e;
         }
-        self::emailSenha($email, $name, 'Acesso ao LexCloud — ' . $office, 'A conta do escritório ' . $office . ' foi criada e você é o responsável. Entre com o seu e-mail e a senha inicial informada pela CHS (a troca é pedida no primeiro acesso), ou crie a sua senha agora pelo botão abaixo.', $link, '48 horas');
+        self::emailSenha($email, $name, 'Acesso ao AdvCloud — ' . $office, 'A conta do escritório ' . $office . ' foi criada e você é o responsável. Entre com o seu e-mail e a senha inicial informada pela CHS (a troca é pedida no primeiro acesso), ou crie a sua senha agora pelo botão abaixo.', $link, '48 horas');
         Security::audit($db, ['id' => $user['id'], 'tenant_id' => $tid], 'platform:tenant_created', 'tenant', $tid);
         Http::respond(['ok' => true, 'id' => $tid, 'invite_link' => $link, 'message' => 'Escritório criado. O responsável entra com ' . $email . ' e a senha padrão (troca obrigatória no primeiro acesso, vale ' . Security::DIAS_SENHA_INICIAL . ' dias). Convite também enviado por e-mail.'], 201);
     }
@@ -713,7 +713,7 @@ final class ApiController
             if (!$owner) Http::fail('Este escritório não tem responsável ativo.', 404);
             $db->prepare("UPDATE users SET password_hash=?, must_change_password=1, senha_inicial_ate=NOW() + INTERVAL " . Security::DIAS_SENHA_INICIAL . " DAY WHERE id=?")->execute([password_hash(Security::senhaPadrao(), PASSWORD_DEFAULT), (int) $owner['id']]);
             $link = self::criarLinkSenha($db, (int) $owner['id'], 48);
-            self::emailSenha((string) $owner['email'], (string) $owner['name'], 'Acesso ao LexCloud — ' . $t['name'], 'Seu acesso foi renovado: entre com o seu e-mail e a senha inicial informada pela CHS (a troca é pedida no primeiro acesso), ou crie a sua senha pelo botão abaixo.', $link, '48 horas');
+            self::emailSenha((string) $owner['email'], (string) $owner['name'], 'Acesso ao AdvCloud — ' . $t['name'], 'Seu acesso foi renovado: entre com o seu e-mail e a senha inicial informada pela CHS (a troca é pedida no primeiro acesso), ou crie a sua senha pelo botão abaixo.', $link, '48 horas');
             Security::audit($db, ['id' => $user['id'], 'tenant_id' => $tid], 'platform:invite_resent', 'user', (int) $owner['id']);
             Http::respond(['ok' => true, 'invite_link' => $link, 'message' => 'Acesso renovado: ' . $owner['email'] . ' volta para a senha padrão (troca obrigatória, vale ' . Security::DIAS_SENHA_INICIAL . ' dias). Convite também enviado por e-mail.']);
         }

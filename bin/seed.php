@@ -62,12 +62,12 @@ try {
 
     // Equipe: a responsável entra com "demo"; os demais são só ilustrativos (senha aleatória, não entram)
     $u = $db->prepare('INSERT INTO users (tenant_id, name, email, username, password_hash, role, active, must_change_password) VALUES (?,?,?,?,?,?,1,?)');
-    $u->execute([$t, 'Dra. Helena Silva', 'helena.silva@demo.lexcloud', 'demo', $senha, 'owner', 1]);           $dona = (int) $db->lastInsertId();
+    $u->execute([$t, 'Dra. Helena Silva', 'helena.silva@demo.advcloud', 'demo', $senha, 'owner', 1]);           $dona = (int) $db->lastInsertId();
     $aleatoria = fn() => password_hash(bin2hex(random_bytes(24)), PASSWORD_DEFAULT);
-    $u->execute([$t, 'Dr. Rafael Costa', 'rafael.costa@demo.lexcloud', null, $aleatoria(), 'lawyer', 0]);        $rafael = (int) $db->lastInsertId();
-    $u->execute([$t, 'Dra. Beatriz Moura', 'beatriz.moura@demo.lexcloud', null, $aleatoria(), 'lawyer', 0]);     $beatriz = (int) $db->lastInsertId();
-    $u->execute([$t, 'Marina Alves', 'marina.alves@demo.lexcloud', null, $aleatoria(), 'staff', 0]);             $marina = (int) $db->lastInsertId();
-    $u->execute([$t, 'Paulo Nunes', 'paulo.nunes@demo.lexcloud', null, $aleatoria(), 'finance', 0]);             $paulo = (int) $db->lastInsertId();
+    $u->execute([$t, 'Dr. Rafael Costa', 'rafael.costa@demo.advcloud', null, $aleatoria(), 'lawyer', 0]);        $rafael = (int) $db->lastInsertId();
+    $u->execute([$t, 'Dra. Beatriz Moura', 'beatriz.moura@demo.advcloud', null, $aleatoria(), 'lawyer', 0]);     $beatriz = (int) $db->lastInsertId();
+    $u->execute([$t, 'Marina Alves', 'marina.alves@demo.advcloud', null, $aleatoria(), 'staff', 0]);             $marina = (int) $db->lastInsertId();
+    $u->execute([$t, 'Paulo Nunes', 'paulo.nunes@demo.advcloud', null, $aleatoria(), 'finance', 0]);             $paulo = (int) $db->lastInsertId();
 
     // Clientes (fictícios)
     $c = $db->prepare('INSERT INTO clients (tenant_id, name, kind, email, phone, city, notes, status) VALUES (?,?,?,?,?,?,?,?)');

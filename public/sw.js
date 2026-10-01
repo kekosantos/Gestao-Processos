@@ -1,8 +1,8 @@
-const CACHE_NAME = 'lexcloud-shell-v25';
+const CACHE_NAME = 'lexcloud-shell-v26';
 const STATIC_ASSETS = [
   '/offline.html',
-  '/assets/app.css?v=25',
-  '/assets/app.js?v=25',
+  '/assets/app.css?v=26',
+  '/assets/app.js?v=26',
   '/assets/lexcloud-mark.svg',
   '/assets/lexcloud-icon-192.png',
   '/assets/lexcloud-icon-512.png',

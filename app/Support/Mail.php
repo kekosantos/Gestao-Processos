@@ -64,7 +64,7 @@ final class Mail
         $user   = self::env('MAIL_USER', '');
         $pass   = self::env('MAIL_PASS', '');
         $from   = self::env('MAIL_FROM', $user);
-        $nome   = self::env('MAIL_FROM_NAME', 'LexCloud');
+        $nome   = self::env('MAIL_FROM_NAME', 'AdvCloud');
         if (!filter_var($from, FILTER_VALIDATE_EMAIL)) throw new \RuntimeException('MAIL_FROM inválido.');
 
         $alvo = ($secure === 'ssl' ? 'ssl://' : 'tcp://') . $host . ':' . $porta;
