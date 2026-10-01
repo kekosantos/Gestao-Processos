@@ -67,3 +67,14 @@ O layout e as funcionalidades foram mantidos. As mudanças são de segurança, d
   - `tests/biometria_http.py`, com 33 verificações nos dois tipos de aparelho, incluindo assinatura falsa, clonagem, reuso da resposta, site falso e contador;
   - teste no navegador com o autenticador virtual do Chrome: cadastrar, sair e entrar.
 - **Observação:** a biometria só funciona em endereço com nome (`*.onrender.com`, `*.fly.dev`, domínio próprio). Não funciona em IP. Confira se o `APP_URL` é o endereço público.
+
+
+## v2.4: botão "Instalar app" (PWA)
+- **O app já era instalável** (o Chrome não apontou nenhum erro), mas não tinha botão próprio. Sem ele, no celular a opção fica escondida no menu do navegador.
+- **Agora, como no Gestão de Notas:**
+  - convite **"Instale o LexCloud"** no login, que dá para fechar;
+  - item **"Instalar app"** no menu.
+  - Os dois só aparecem quando o navegador permite instalar.
+- **iPhone:** o Safari não tem o convite automático, então aparece a instrução **Compartilhar → Adicionar à Tela de Início**.
+- **Já instalado:** quando o sistema é aberto como app, não aparece nada.
+- **Cache:** a versão dos arquivos passou de `?v=2` para `?v=24`. Antes, um celular que já tinha aberto o sistema continuava com o `app.js` antigo guardado pelo service worker.

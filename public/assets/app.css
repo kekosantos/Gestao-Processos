@@ -31,3 +31,15 @@
 .link-tenant{background:none;border:0;padding:0;font:inherit;font-weight:700;color:var(--brand);cursor:pointer;text-align:left}
 .link-tenant:hover{text-decoration:underline}
 .bio-btn{margin-top:10px;display:inline-flex;align-items:center;justify-content:center;gap:8px;width:100%}
+
+/* Instalar o app (PWA): aparece só quando o navegador permite (ou no iPhone, com a instrução) */
+.pwa-install{display:none !important}
+.pode-instalar .nav-link.pwa-install{display:flex !important}
+.pode-instalar:not(.instalar-dispensado) .pwa-convite.pwa-install{display:flex !important}
+.pwa-convite{margin-top:18px;padding:12px 14px;border:1px solid #cfe3dc;background:#f1f8f5;border-radius:12px;align-items:center;gap:10px;flex-wrap:wrap;position:relative;font-size:13px;line-height:1.4;color:#123d39}
+.pwa-convite-txt{flex:1 1 180px;padding-right:18px}
+.pwa-convite-ios{display:none;flex-basis:100%;font-size:12.5px}
+.instalar-ios .pwa-convite-ios{display:block}
+.instalar-ios .pwa-convite-btn{display:none}
+.pwa-convite-x{position:absolute;top:6px;right:8px;background:none;border:0;cursor:pointer;color:#5b6b67;font-size:14px;line-height:1}
+.pwa-passos{margin:0 0 12px 18px;line-height:1.7}
