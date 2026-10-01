@@ -51,14 +51,15 @@ $title = 'AdvCloud — Gestão Jurídica';
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#0b5b55">
+  <meta name="app-version" content="<?= htmlspecialchars(APP_VERSION . '|' . date('d/m/Y', strtotime(APP_VERSION_DATE)), ENT_QUOTES) ?>">
   <meta name="description" content="Gestão clara de processos, tarefas, prazos e clientes para escritórios de advocacia.">
   <meta name="csrf-token" content="<?= $csrf ?>">
   <title><?= htmlspecialchars($title, ENT_QUOTES, 'UTF-8') ?></title>
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">
   <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
-  <link rel="stylesheet" href="/assets/app.css?v=26">
-  <script defer src="/assets/app.js?v=26"></script>
+  <link rel="stylesheet" href="/assets/app.css?v=27">
+  <script defer src="/assets/app.js?v=27"></script>
 </head>
 <body>
   <a class="skip-link" href="#main">Pular para o conteúdo</a>

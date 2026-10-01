@@ -43,3 +43,5 @@
 .instalar-ios .pwa-convite-btn{display:none}
 .pwa-convite-x{position:absolute;top:6px;right:8px;background:none;border:0;cursor:pointer;color:#5b6b67;font-size:14px;line-height:1}
 .pwa-passos{margin:0 0 12px 18px;line-height:1.7}
+.app-versao{font-size:11.5px;color:#8a9a96;margin-top:10px;text-align:left}
+.app-versao-menu{color:rgba(241,248,244,.45);text-align:left;padding:8px 14px 0;margin-top:4px}

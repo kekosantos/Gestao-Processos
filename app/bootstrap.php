@@ -1,6 +1,8 @@
 <?php
 declare(strict_types=1);
 
+require_once __DIR__ . '/version.php';
+
 use LexCloud\Support\Http;
 use LexCloud\Support\Security;
 

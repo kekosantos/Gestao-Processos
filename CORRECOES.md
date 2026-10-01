@@ -85,3 +85,9 @@ O layout e as funcionalidades foram mantidos. As mudanças são de segurança, d
 - **O que fica igual, de propósito:** os nomes internos (código `LexCloud\...`, banco `lexcloud`, repositório, serviço no Render e linhas de log). Mudá-los não traria nada ao usuário e só criaria risco.
 - **Demo:** a equipe fictícia passa a usar `@demo.advcloud`, inclusive na demo que já existia (pela migração, sem apagar nada).
 - **Biometria:** as já cadastradas continuam valendo, porque o domínio não mudou.
+
+
+## v2.6.0: versão do sistema e ajustes do login
+- **Versão do sistema** em `app/version.php`, mostrada no rodapé do login ("Versão 2.6.0") e embaixo do menu ("AdvCloud v2.6.0"), com a data ao passar o mouse. Atualize o número a cada entrega.
+- **Título do login:** "Bem-vindo!".
+- **Círculo do admin da plataforma:** mostra **"A"** de AdvCloud (antes era "L" de LexCloud).
