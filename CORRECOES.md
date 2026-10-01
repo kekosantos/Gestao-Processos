@@ -72,7 +72,7 @@ O layout e as funcionalidades foram mantidos. As mudanças são de segurança, d
 ## v2.4: botão "Instalar app" (PWA)
 - **O app já era instalável** (o Chrome não apontou nenhum erro), mas não tinha botão próprio. Sem ele, no celular a opção fica escondida no menu do navegador.
 - **Agora, como no Gestão de Notas:**
-  - convite **"Instale o LexCloud"** no login, que dá para fechar;
+  - convite "Instale o LexCloud" no login (retirado na v2.4.1: a instalação fica só para quem já entrou);
   - item **"Instalar app"** no menu.
   - Os dois só aparecem quando o navegador permite instalar.
 - **iPhone:** o Safari não tem o convite automático, então aparece a instrução **Compartilhar → Adicionar à Tela de Início**.

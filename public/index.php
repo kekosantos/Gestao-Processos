@@ -57,8 +57,8 @@ $title = 'LexCloud — Gestão Jurídica';
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">
   <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
-  <link rel="stylesheet" href="/assets/app.css?v=24">
-  <script defer src="/assets/app.js?v=24"></script>
+  <link rel="stylesheet" href="/assets/app.css?v=25">
+  <script defer src="/assets/app.js?v=25"></script>
 </head>
 <body>
   <a class="skip-link" href="#main">Pular para o conteúdo</a>
