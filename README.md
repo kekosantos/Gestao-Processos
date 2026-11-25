@@ -1,6 +1,6 @@
 # LexCloud — Gestão Jurídica
 
-MVP web multi-tenant para escritório de advocacia, em português, feito com **PHP 8.3 puro (sem framework)**, PDO/MySQL, HTML/CSS/JavaScript sem framework e PWA instalável.
+MVP web multi-tenant para escritório de advocacia, em português, feito com **PHP 8.5 puro (sem framework)**, PDO/MySQL, HTML/CSS/JavaScript sem framework e PWA instalável.
 
 ## O que está incluído
 
@@ -24,7 +24,7 @@ Ambos usam um **MySQL compatível gerenciado externamente com TLS**; as migraç�
 
 ## Executar localmente
 
-Requer PHP 8.3 com `pdo_mysql`, `mbstring` e `fileinfo`, além de MySQL 8/MariaDB compatível.
+Requer PHP 8.5 com `pdo_mysql`, `mbstring` e `fileinfo`, além de MySQL 8/MariaDB compatível.
 
 1. Copie `.env.example` para `.env` e configure `MYSQL_HOST`, `MYSQL_DATABASE`, `MYSQL_USER` e `MYSQL_PASSWORD`; use `DATABASE_URL` se preferir DSN URL.
 2. Rode `php bin/migrate.php` para criar/atualizar tabelas de forma aditiva.

@@ -16,6 +16,14 @@ if (str_starts_with($path, '/api/')) {
     exit;
 }
 
+if ($path === '/ajuda' || str_starts_with($path, '/ajuda/')) {
+    header('X-Content-Type-Options: nosniff');
+    header('X-Frame-Options: DENY');
+    header('Referrer-Policy: strict-origin-when-cross-origin');
+    $ajuda = App\Validacao\Kit::rotear($method, $path);
+    if ($ajuda !== null) { echo $ajuda; exit; }
+}
+
 if ($method !== 'GET' && $method !== 'HEAD') {
     http_response_code(405);
     header('Allow: GET, HEAD');
@@ -28,7 +36,6 @@ if (!in_array($path, $knownPages, true) && !str_starts_with($path, '/app/')) {
     http_response_code(404);
 }
 
-// Liveness/readiness page never exposes configuration or database errors.
 if ($path === '/api/health') {
     try {
         Database::connection()->query('SELECT 1');
@@ -43,6 +50,8 @@ header('Cache-Control: private, no-store, max-age=0');
 header('X-Content-Type-Options: nosniff');
 header('Referrer-Policy: strict-origin-when-cross-origin');
 header('Permissions-Policy: camera=(), microphone=(), geolocation=()');
+header('X-Frame-Options: DENY');
+if (strtolower((string) ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '')) === 'https' || (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')) header('Strict-Transport-Security: max-age=31536000');
 $csrf = htmlspecialchars(Security::csrfToken(), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 $title = 'AdvCloud — Gestão Jurídica';
 ?><!doctype html>
@@ -58,8 +67,8 @@ $title = 'AdvCloud — Gestão Jurídica';
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">
   <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
-  <link rel="stylesheet" href="/assets/app.css?v=27">
-  <script defer src="/assets/app.js?v=27"></script>
+  <link rel="stylesheet" href="/assets/app.css?v=28">
+  <script defer src="/assets/app.js?v=28"></script>
 </head>
 <body>
   <a class="skip-link" href="#main">Pular para o conteúdo</a>
@@ -67,5 +76,6 @@ $title = 'AdvCloud — Gestão Jurídica';
     <div class="boot-screen"><span class="brand-mark" aria-hidden="true">L</span><p>Preparando seu escritório…</p></div>
   </main>
   <noscript>O AdvCloud precisa de JavaScript habilitado para apresentar os módulos interativos.</noscript>
+  <?= App\Validacao\Kit::widgetSpa() ?>
 </body>
 </html>

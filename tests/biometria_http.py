@@ -23,7 +23,6 @@ class C:
         return code, j
     def entrar(s, u, p): return s.r('POST', '/api/auth/login', {'email': u, 'password': p})
 
-# ── Autenticador simulado (o mesmo do Gestão Financeira) ──
 def b64u(b): return base64.urlsafe_b64encode(b).rstrip(b'=').decode()
 def cbor(v):
     def hdr(mt, n):

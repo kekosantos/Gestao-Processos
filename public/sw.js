@@ -1,8 +1,8 @@
-const CACHE_NAME = 'lexcloud-shell-v27';
+const CACHE_NAME = 'lexcloud-shell-v28';
 const STATIC_ASSETS = [
   '/offline.html',
-  '/assets/app.css?v=27',
-  '/assets/app.js?v=27',
+  '/assets/app.css?v=28',
+  '/assets/app.js?v=28',
   '/assets/lexcloud-mark.svg',
   '/assets/lexcloud-icon-192.png',
   '/assets/lexcloud-icon-512.png',
@@ -21,7 +21,7 @@ self.addEventListener('fetch', event => {
   const request = event.request;
   const url = new URL(request.url);
   if (request.method !== 'GET' || url.origin !== self.location.origin) return;
-  // Never cache authenticated API payloads, documents, or any response containing legal data.
+
   if (url.pathname.startsWith('/api/') || url.pathname.includes('/download')) return;
   if (request.mode === 'navigate') {
     event.respondWith(fetch(request).catch(async () => (await caches.match('/offline.html')) || Response.error()));

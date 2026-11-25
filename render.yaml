@@ -1,6 +1,3 @@
-# Render — VALIDAÇÃO (DEV/HML). Produção: Fly.io (fly.toml).
-# Funciona no plano gratuito: as tabelas são criadas ao iniciar (RUN_MIGRATIONS=true).
-# Atenção: o plano gratuito "adormece" sem uso — não use para dados jurídicos reais.
 services:
   - type: web
     name: lexcloud                   # troque pelo nome exato do serviço, se já existir

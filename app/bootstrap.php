@@ -57,3 +57,28 @@ set_exception_handler(static function (Throwable $exception): void {
     http_response_code(500);
     echo 'Erro interno. Atualize a página ou contate o administrador do escritório.';
 });
+
+require_once __DIR__ . '/Validacao/Markdown.php';
+require_once __DIR__ . '/Validacao/Kit.php';
+App\Validacao\Kit::configurar([
+    'sistema' => 'AdvCloud',
+    'versao' => APP_VERSION,
+    'docs' => dirname(__DIR__) . '/docs',
+    'base' => '/ajuda',
+    'login' => '/login',
+    'voltar' => '/app/dashboard',
+    'pdo' => static fn (): PDO => LexCloud\Support\Database::connection(),
+    'csrf_token' => static fn (): string => LexCloud\Support\Security::csrfToken(),
+    'usuario' => static function (): ?array {
+        $u = LexCloud\Support\Security::user();
+        if (!$u || (int) ($u['must_change_password'] ?? 0)) return null;
+        $papeis = ['owner' => 'Sócia(o) titular', 'admin' => 'Administradora(or)', 'lawyer' => 'Advogada(o)', 'staff' => 'Equipe de apoio', 'finance' => 'Financeiro', 'viewer' => 'Consulta', 'platform_admin' => 'Administração da plataforma'];
+        if (!empty($u['support'])) return ['id' => -(int) $u['platform_user_id'], 'nome' => (string) $u['name'], 'perfil' => 'Administração da plataforma'];
+        $perfil = ($papeis[$u['role']] ?? $u['role']) . (!empty($u['tenant_name']) ? ' · ' . $u['tenant_name'] : '');
+        return ['id' => (int) $u['id'], 'nome' => (string) $u['name'], 'perfil' => mb_substr($perfil, 0, 60)];
+    },
+    'admin' => static function (): bool {
+        $u = LexCloud\Support\Security::user();
+        return $u !== null && ($u['role'] === 'platform_admin' || !empty($u['support']));
+    },
+]);

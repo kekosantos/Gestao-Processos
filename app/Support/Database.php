@@ -17,8 +17,6 @@ final class Database
             return self::$connection;
         }
 
-        // Padrão CHS (igual ao Gestão de Notas): DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASS, DB_SSL.
-        // Continua aceitando os nomes antigos (MYSQL_* e DATABASE_URL) para não quebrar quem já usa.
         $v = static fn(string ...$nomes): string => (string) (array_values(array_filter(array_map(static fn($n) => getenv($n) ?: '', $nomes)))[0] ?? '');
         $dsn = $v('DB_HOST') !== '' ? '' : (getenv('DATABASE_URL') ?: '');
         $user = $v('DB_USER', 'MYSQL_USER');
@@ -79,11 +77,9 @@ final class Database
             PDO::ATTR_TIMEOUT => 10,
         ];
         if (defined('PDO::MYSQL_ATTR_INIT_COMMAND')) {
-            $options[\PDO::MYSQL_ATTR_INIT_COMMAND] = "SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci";
+            $options[(\PHP_VERSION_ID >= 80400 ? \Pdo\Mysql::ATTR_INIT_COMMAND : \PDO::MYSQL_ATTR_INIT_COMMAND)] = "SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci";
         }
         $sslCa = getenv('MYSQL_SSL_CA') ?: '';
-        // TiDB Cloud recusa conexão sem criptografia (erro 1105 "insecure transport"): liga o TLS sozinho
-        // quando o host é do TiDB, ou quando MYSQL_SSL=true — sem depender de MYSQL_SSL_CA nem de "mysqls://".
         $hostAtual = preg_match('/host=([^;]+)/', (string) $pdoDsn, $hm) ? strtolower($hm[1]) : '';
         $sslVar = strtolower($v('DB_SSL', 'MYSQL_SSL'));
         if ((str_ends_with($hostAtual, '.tidbcloud.com') && $sslVar !== 'false') || $sslVar === 'true') {
@@ -97,19 +93,16 @@ final class Database
             if (!defined('PDO::MYSQL_ATTR_SSL_CA')) {
                 throw new RuntimeException('O PHP precisa da extensão PDO MySQL com suporte a TLS.');
             }
-            // MYSQL_SSL_VERIFY=false: mantém a conexão criptografada, mas não confere o certificado do servidor.
-            // Só use se o log apontar erro de certificado (o padrão é conferir).
             if (strtolower($v('DB_SSL_VERIFY', 'MYSQL_SSL_VERIFY')) === 'false') { $verifyCertificate = false; }
-            $options[\PDO::MYSQL_ATTR_SSL_CA] = $sslCa;
+            $options[(\PHP_VERSION_ID >= 80400 ? \Pdo\Mysql::ATTR_SSL_CA : \PDO::MYSQL_ATTR_SSL_CA)] = $sslCa;
             if (defined('PDO::MYSQL_ATTR_SSL_VERIFY_SERVER_CERT')) {
-                $options[\PDO::MYSQL_ATTR_SSL_VERIFY_SERVER_CERT] = $verifyCertificate;
+                $options[(\PHP_VERSION_ID >= 80400 ? \Pdo\Mysql::ATTR_SSL_VERIFY_SERVER_CERT : \PDO::MYSQL_ATTR_SSL_VERIFY_SERVER_CERT)] = $verifyCertificate;
             }
         }
 
         try {
             self::$connection = new PDO($pdoDsn, $user, $password, $options);
         } catch (PDOException $exception) {
-            // Motivo real nos logs (código + texto do driver; o texto não inclui a senha). Ex.: [1049] Unknown database
             error_log('LexCloud database connection failed [' . $exception->getCode() . ']: ' . $exception->getMessage());
             throw new RuntimeException('Não foi possível conectar ao banco. Confira as variáveis de ambiente e a disponibilidade do MySQL.');
         }

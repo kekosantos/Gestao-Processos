@@ -1,4 +1,4 @@
-FROM php:8.3-apache-bookworm
+FROM php:8.5.12-apache
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends ca-certificates libonig-dev \

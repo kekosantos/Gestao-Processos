@@ -91,3 +91,15 @@ O layout e as funcionalidades foram mantidos. As mudanças são de segurança, d
 - **Versão do sistema** em `app/version.php`, mostrada no rodapé do login ("Versão 2.6.0") e embaixo do menu ("AdvCloud v2.6.0"), com a data ao passar o mouse. Atualize o número a cada entrega.
 - **Título do login:** "Bem-vindo!".
 - **Círculo do admin da plataforma:** mostra **"A"** de AdvCloud (antes era "L" de LexCloud).
+
+## v2.7.0: ajuda, biometria direto, PHP 8.5 e segurança
+- **Ajuda e manual** (`/ajuda`, no menu): manual de processos (`docs/MANUAL.md`) com sumário e botão **Imprimir / salvar PDF**.
+- **Roteiro de testes** (`/ajuda/roteiro`, texto em `docs/ROTEIRO.md`): cada passo com **OK**, **Falhou** ou **Não se aplica** e observação.
+- **Botão Ponderação** em todas as telas depois do login (canto inferior direito): erro, melhoria, dúvida ou texto, com a tela e print opcional.
+- **Administração da plataforma → Ponderações** (`/ajuda/ponderacoes`): resposta para quem enviou, situação, progresso dos testes e CSV. As tabelas `vk_ponderacoes` e `vk_roteiro` são criadas sozinhas no primeiro acesso.
+- **Biometria direto:** o aparelho lembra as últimas 5 credenciais usadas nele (só o id público). O login manda esses ids e o servidor devolve em `allowCredentials` (transporte `internal`) os que existem no banco: o Android pede a digital direto, sem a tela de escolher a conta. O `rpId` passa a seguir o endereço aberto quando é https. Credencial apagada ou recusada faz o aparelho esquecer o id.
+- **PHP 8.5:** imagem de `php:8.3-apache-bookworm` para `php:8.5.12-apache`. Constantes SSL do MySQL pelo nome novo (`Pdo\Mysql::ATTR_*`, com o nome antigo como reserva).
+- **Segurança:** `X-Frame-Options: DENY` na tela do app e `Strict-Transport-Security` quando aberto em https.
+- **Código sem comentários** (PHP, JS, CSS e Dockerfile). Conferido token a token que o código PHP não mudou.
+- Cache do app instalado renovado (`lexcloud-shell-v28`).
+- **Testes:** `tests/biometria_http.py` 33 de 33; os outros com o mesmo resultado da versão anterior. Conferido: Ajuda, roteiro, ponderação com e sem CSRF e `allowCredentials` com o aparelho lembrado.

@@ -5,11 +5,6 @@ namespace LexCloud\Support;
 
 use Exception;
 
-/**
- * Biometria (digital, Face ID, Windows Hello) sem dependências externas.
- * Mesmo motor do Gestão de Notas: assinatura verificada (ES256 e RS256), desafio de uso único,
- * origem e domínio conferidos, biometria (UV) obrigatória e contador contra clonagem.
- */
 final class WebAuthn
 {
     private string $rpId;
@@ -18,7 +13,6 @@ final class WebAuthn
 
     public function __construct()
     {
-        // APP_URL define o domínio da biometria. Sem ela, usa o endereço desta requisição (atrás do proxy do Render/Fly)
         $url = (string) (getenv('APP_URL') ?: '');
         if ($url === '') {
             $https = strtolower((string) ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '')) === 'https' || (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off');
@@ -27,14 +21,22 @@ final class WebAuthn
         $scheme = parse_url($url, PHP_URL_SCHEME) ?: 'https';
         $host   = parse_url($url, PHP_URL_HOST) ?: 'localhost';
         $port   = parse_url($url, PHP_URL_PORT);
+        $pedido = strtolower(trim((string) ($_SERVER['HTTP_HOST'] ?? '')));
+        if ($pedido !== '' && preg_match('/^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*(:\d{1,5})?$/', $pedido)) {
+            $https = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || strtolower((string) ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '')) === 'https';
+            $semPorta = (string) preg_replace('/:\d+$/', '', $pedido);
+            if ($https || $semPorta === 'localhost') {
+                $scheme = $https ? 'https' : 'http';
+                $host = $semPorta;
+                $port = preg_match('/:(\d+)$/', $pedido, $m) ? (int) $m[1] : null;
+            }
+        }
 
         $this->rpId   = $host;
         $this->rpName = 'AdvCloud';
-        // A origem enviada pelo navegador é só esquema://host[:porta], sem caminho nem barra final
         $this->origin = $scheme . '://' . $host . ($port ? ':' . $port : '');
     }
 
-    // ── Desafio (uso único) ────────────────────────────────────────────────
 
     private function generateChallenge(): string
     {
@@ -43,7 +45,6 @@ final class WebAuthn
         return $this->base64url_encode($challenge);
     }
 
-    /** Lê e descarta o desafio da sessão — impede reutilização (replay). */
     private function consumeChallenge(): string
     {
         $challenge = $_SESSION['webauthn_challenge'] ?? '';
@@ -54,11 +55,7 @@ final class WebAuthn
         return $this->base64url_encode(base64_decode($challenge));
     }
 
-    // ── Cadastro ───────────────────────────────────────────────────────────
 
-    /**
-     * @param array $excluirIds credential_ids já cadastrados deste usuário (evita duplicar o mesmo aparelho)
-     */
     public function getRegistrationOptions(int $userId, string $userName, string $userType, array $excluirIds = []): array
     {
         $challenge = $this->generateChallenge();
@@ -73,13 +70,11 @@ final class WebAuthn
                 'displayName' => $userName,
             ],
             'pubKeyCredParams' => [
-                ['type' => 'public-key', 'alg' => -7],    // ES256 (celulares, Mac)
-                ['type' => 'public-key', 'alg' => -257],  // RS256 (Windows Hello)
+                ['type' => 'public-key', 'alg' => -7],
+                ['type' => 'public-key', 'alg' => -257],
             ],
             'authenticatorSelection' => [
                 'authenticatorAttachment' => 'platform',
-                // Credencial localizável: o login não informa o usuário antes,
-                // então o aparelho precisa conseguir achar a chave sozinho
                 'residentKey'             => 'required',
                 'requireResidentKey'      => true,
                 'userVerification'        => 'required',
@@ -127,16 +122,17 @@ final class WebAuthn
         ];
     }
 
-    // ── Login ──────────────────────────────────────────────────────────────
 
-    public function getAuthenticationOptions(): array
+    public function getAuthenticationOptions(array $permitidas = []): array
     {
-        return [
+        $opts = [
             'challenge'        => $this->generateChallenge(),
             'rpId'             => $this->rpId,
             'userVerification' => 'required',
             'timeout'          => 60000,
         ];
+        if ($permitidas) $opts['allowCredentials'] = array_map(fn($id) => ['type' => 'public-key', 'id' => $id, 'transports' => ['internal']], array_values($permitidas));
+        return $opts;
     }
 
     public function verifyAuthentication(array $credential, string $publicKeyB64, int $storedSignCount): array
@@ -159,8 +155,6 @@ final class WebAuthn
         if (!($parsed['flags'] & 0x01)) throw new Exception('Presença do usuário não confirmada.');
         if (!($parsed['flags'] & 0x04)) throw new Exception('Biometria não confirmada.');
 
-        // Contador anti-clonagem: só vale quando o aparelho usa contador
-        // (chaves sincronizadas do Google/Apple enviam sempre 0)
         if ($storedSignCount > 0 && $parsed['signCount'] > 0 && $parsed['signCount'] <= $storedSignCount) {
             throw new Exception('Credencial possivelmente clonada — cadastre a biometria novamente.');
         }
@@ -172,7 +166,6 @@ final class WebAuthn
         return ['sign_count' => $parsed['signCount']];
     }
 
-    // ── Helpers ────────────────────────────────────────────────────────────
 
     private function parseAuthData(string $authData): array
     {
@@ -185,9 +178,8 @@ final class WebAuthn
 
         $result = ['rpIdHash' => $rpIdHash, 'flags' => $flags, 'signCount' => $signCount];
 
-        // Dados da credencial (flag AT)
         if (($flags & 0x40) && strlen($authData) > $offset) {
-            $offset += 16; // aaguid
+            $offset += 16;
             $credIdLen    = unpack('n', substr($authData, $offset, 2))[1]; $offset += 2;
             $credentialId = substr($authData, $offset, $credIdLen);        $offset += $credIdLen;
 
@@ -206,7 +198,6 @@ final class WebAuthn
         $kty = $cose[1] ?? null;
 
         if ($kty === 2) {
-            // EC2 (ES256) — curva P-256
             $x = $cose[-2] ?? '';
             $y = $cose[-3] ?? '';
             if (strlen($x) !== 32 || strlen($y) !== 32) throw new Exception('Chave EC inválida.');
@@ -219,7 +210,6 @@ final class WebAuthn
         }
 
         if ($kty === 3) {
-            // RSA (RS256) — Windows Hello
             $rsaSeq = $this->derInteger($cose[-1] ?? '') . $this->derInteger($cose[-2] ?? '');
             $rsaKey = "\x30" . $this->derLength(strlen($rsaSeq)) . $rsaSeq;
             $oid    = "\x30\x0d\x06\x09\x2a\x86\x48\x86\xf7\x0d\x01\x01\x01\x05\x00";
@@ -231,7 +221,6 @@ final class WebAuthn
         throw new Exception('Tipo de chave não suportado: kty=' . var_export($kty, true));
     }
 
-    /** INTEGER DER sem sinal: prefixa 0x00 quando o bit mais alto está ligado. */
     private function derInteger(string $bytes): string
     {
         $bytes = ltrim($bytes, "\x00");
@@ -253,7 +242,6 @@ final class WebAuthn
              . "-----END PUBLIC KEY-----";
     }
 
-    // CBOR mínimo para WebAuthn
     private function cborDecode(string $data, int &$offset = 0): mixed
     {
         if (!isset($data[$offset])) throw new Exception('CBOR truncado.');
@@ -285,7 +273,6 @@ final class WebAuthn
         return rtrim(strtr(base64_encode($data), '+/', '-_'), '=');
     }
 
-    /** Converte base64url para base64 padrão (ainda codificado). */
     private function base64url_decode_str(string $data): string
     {
         $pad = strlen($data) % 4;

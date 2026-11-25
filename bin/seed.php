@@ -1,16 +1,5 @@
 <?php
 declare(strict_types=1);
-/**
- * Dados iniciais (rodado pelo bin/migrate.php, a cada inicialização). Só cria o que AINDA NÃO existe:
- *
- *  1) Admin da plataforma (CHS): usuário ADMIN_USUARIO (padrão cleiton.santos), e-mail ADMIN_EMAIL,
- *     senha = SENHA_PADRAO (padrão "password"), troca obrigatória no primeiro acesso, vale 7 dias.
- *     Só é criado se ainda não houver nenhum admin da plataforma.
- *
- *  2) Escritório DEMO com dados fictícios, para demonstração (DEMO_DATA=false desliga).
- *     Acesso: usuário "demo" + SENHA_PADRAO (troca obrigatória no primeiro acesso).
- *     Todos os nomes, documentos e números de processo são FICTÍCIOS.
- */
 if (!isset($db)) {
     require_once dirname(__DIR__) . '/app/bootstrap.php';
     $db = LexCloud\Support\Database::connection();
@@ -20,14 +9,11 @@ use LexCloud\Support\Security;
 $senha = password_hash(Security::senhaPadrao(), PASSWORD_DEFAULT);
 $dias = Security::DIAS_SENHA_INICIAL;
 
-// ── 1) Admin da plataforma ──────────────────────────────────────────────
 $usuario = strtolower(trim((string) (getenv('ADMIN_USUARIO') ?: 'cleiton.santos')));
 $email = strtolower(trim((string) (getenv('ADMIN_EMAIL') ?: 'cleiton@chsconsultoria.com.br')));
 $nome = trim((string) (getenv('ADMIN_NOME') ?: 'Cleiton Santos'));
 $temAdmin = (int) $db->query("SELECT COUNT(*) FROM users WHERE role = 'platform_admin'")->fetchColumn();
 
-// Recuperação: ADMIN_REDEFINIR=true devolve o PRIMEIRO admin da plataforma ao usuário ADMIN_USUARIO com a senha
-// padrão (troca obrigatória). Use uma vez, entre no sistema e APAGUE a variável.
 if ($temAdmin > 0 && strtolower((string) getenv('ADMIN_REDEFINIR')) === 'true') {
     $id = (int) $db->query("SELECT id FROM users WHERE role = 'platform_admin' ORDER BY id LIMIT 1")->fetchColumn();
     $ocupado = $db->prepare('SELECT COUNT(*) FROM users WHERE username = ? AND id <> ?'); $ocupado->execute([$usuario, $id]);
@@ -48,7 +34,6 @@ if ($temAdmin === 0 && strtolower((string) getenv('ADMIN_AUTOMATICO')) !== 'fals
     echo "Admin da plataforma criado: usuário {$usuario} (senha padrão, troca obrigatória no primeiro acesso).\n";
 }
 
-// ── 2) Escritório demo ──────────────────────────────────────────────────
 if (strtolower((string) getenv('DEMO_DATA')) === 'false') return;
 $st = $db->prepare("SELECT id FROM tenants WHERE slug = 'demo'"); $st->execute();
 if ($st->fetchColumn()) return;
@@ -60,7 +45,6 @@ try {
     $db->prepare('INSERT INTO tenant_settings (tenant_id, timezone, language, settings_text) VALUES (?,?,?,?)')
        ->execute([$t, 'America/Sao_Paulo', 'pt-BR', '{"currency":"BRL","demo":true}']);
 
-    // Equipe: a responsável entra com "demo"; os demais são só ilustrativos (senha aleatória, não entram)
     $u = $db->prepare('INSERT INTO users (tenant_id, name, email, username, password_hash, role, active, must_change_password) VALUES (?,?,?,?,?,?,1,?)');
     $u->execute([$t, 'Dra. Helena Silva', 'helena.silva@demo.advcloud', 'demo', $senha, 'owner', 1]);           $dona = (int) $db->lastInsertId();
     $aleatoria = fn() => password_hash(bin2hex(random_bytes(24)), PASSWORD_DEFAULT);
@@ -69,7 +53,6 @@ try {
     $u->execute([$t, 'Marina Alves', 'marina.alves@demo.advcloud', null, $aleatoria(), 'staff', 0]);             $marina = (int) $db->lastInsertId();
     $u->execute([$t, 'Paulo Nunes', 'paulo.nunes@demo.advcloud', null, $aleatoria(), 'finance', 0]);             $paulo = (int) $db->lastInsertId();
 
-    // Clientes (fictícios)
     $c = $db->prepare('INSERT INTO clients (tenant_id, name, kind, email, phone, city, notes, status) VALUES (?,?,?,?,?,?,?,?)');
     $clientes = [
         ['Mariana Oliveira Santos', 'pessoa_fisica', 'mariana.oliveira@exemplo.com.br', '(27) 99812-4410', 'Vitória', 'Indicada por cliente antigo. Prefere contato por WhatsApp.'],
@@ -81,7 +64,6 @@ try {
     $cli = [];
     foreach ($clientes as $x) { $c->execute([$t, $x[0], $x[1], $x[2], $x[3], $x[4], $x[5], 'active']); $cli[] = (int) $db->lastInsertId(); }
 
-    // Processos (números no formato CNJ, fictícios)
     $p = $db->prepare('INSERT INTO legal_cases (tenant_id, client_id, case_number, area, case_type, subject, court, opposing_party, status, priority, owner_id, opened_on, next_deadline, description)
                        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)');
     $d = fn(int $dias) => date('Y-m-d', strtotime(($dias >= 0 ? '+' : '') . $dias . ' days'));
@@ -103,7 +85,6 @@ try {
     $a->execute([$t, $proc[2], $beatriz, 'andamento', 'Audiência designada', 'Conciliação em data próxima; cliente avisado.']);
     $a->execute([$t, $proc[4], $rafael, 'andamento', 'Alimentos provisórios', 'Fixados em 30% do salário mínimo.']);
 
-    // Tarefas (algumas atrasadas e algumas para os próximos dias, para o painel mostrar alertas)
     $k = $db->prepare('INSERT INTO tasks (tenant_id, case_id, client_id, title, description, assignee_id, priority, status, due_at, completed_at, created_by) VALUES (?,?,?,?,?,?,?,?,?,?,?)');
     $h = fn(int $dias, string $hora = '18:00:00') => date('Y-m-d', strtotime(($dias >= 0 ? '+' : '') . $dias . ' days')) . ' ' . $hora;
     $k->execute([$t, $proc[2], $cli[2], 'Preparar cálculo de horas extras', 'Planilha com base nos cartões de ponto.', $beatriz, 'high', 'in_progress', $h(1), null, $dona]);
@@ -112,7 +93,6 @@ try {
     $k->execute([$t, $proc[4], $cli[4], 'Enviar acordo para a cliente revisar', null, $rafael, 'normal', 'pending', $h(5), null, $dona]);
     $k->execute([$t, $proc[3], $cli[3], 'Acompanhar publicação do tema repetitivo', null, $dona, 'low', 'done', $h(-5), $h(-6, '10:00:00'), $dona]);
 
-    // Agenda
     $e = $db->prepare('INSERT INTO events (tenant_id, case_id, title, event_type, starts_at, ends_at, location, notes, created_by) VALUES (?,?,?,?,?,?,?,?,?)');
     $e->execute([$t, $proc[2], 'Audiência de conciliação — Carlos Eduardo', 'audiencia', $h(1, '14:00:00'), $h(1, '15:00:00'), '1ª Vara do Trabalho de Vitória', 'Levar documentos originais.', $dona]);
     $e->execute([$t, $proc[0], 'Prazo: réplica à contestação', 'prazo', $h(3, '23:59:00'), null, null, null, $dona]);
@@ -120,16 +100,14 @@ try {
     $e->execute([$t, $proc[4], 'Audiência de mediação — Fernanda Rocha', 'audiencia', $h(7, '09:30:00'), $h(7, '10:30:00'), 'CEJUSC Guarapari', null, $dona]);
     $e->execute([$t, null, 'Reunião de equipe', 'reuniao', $h(4, '08:30:00'), $h(4, '09:00:00'), 'Online', 'Pauta: prazos da semana.', $dona]);
 
-    // Financeiro
     $f = $db->prepare('INSERT INTO finance_entries (tenant_id, case_id, client_id, entry_type, description, category, amount, status, due_date, paid_at, created_by) VALUES (?,?,?,?,?,?,?,?,?,?,?)');
     $f->execute([$t, null, $cli[1], 'receita', 'Honorários mensais — assessoria', 'Honorários', '3500.00', 'pago', $d(-10), $h(-10, '11:00:00'), $paulo]);
     $f->execute([$t, $proc[0], $cli[0], 'receita', 'Honorários iniciais — ação de indenização', 'Honorários', '2500.00', 'pago', $d(-25), $h(-25, '15:00:00'), $paulo]);
-    $f->execute([$t, $proc[2], $cli[2], 'receita', 'Entrada — reclamação trabalhista', 'Honorários', '1800.00', 'pendente', $d(0), null, $paulo]);   // vence hoje: o cartão "Recebíveis do mês" sempre tem valor
+    $f->execute([$t, $proc[2], $cli[2], 'receita', 'Entrada — reclamação trabalhista', 'Honorários', '1800.00', 'pendente', $d(0), null, $paulo]);
     $f->execute([$t, $proc[4], $cli[4], 'receita', 'Honorários — ação de alimentos', 'Honorários', '2200.00', 'pendente', $d(12), null, $paulo]);
     $f->execute([$t, null, null, 'despesa', 'Aluguel do escritório', 'Estrutura', '4200.00', 'pago', $d(-5), $h(-5, '09:00:00'), $paulo]);
     $f->execute([$t, $proc[1], $cli[1], 'despesa', 'Custas iniciais — cobrança', 'Custas processuais', '380.50', 'pendente', $d(2), null, $paulo]);
 
-    // Documentos (texto simples, fictícios)
     $doc = $db->prepare('INSERT INTO documents (tenant_id, case_id, client_id, file_name, content_type, file_size, sha256, content, uploader_id, uploaded_at) VALUES (?,?,?,?,?,?,?,?,?,NOW())');
     foreach ([
         [$proc[0], $cli[0], 'procuracao-mariana-oliveira.txt', "PROCURAÇÃO (DOCUMENTO FICTÍCIO — DEMONSTRAÇÃO)\n\nOutorgante: Mariana Oliveira Santos\nOutorgado: Silva & Associados Advocacia\n", $rafael],

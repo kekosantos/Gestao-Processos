@@ -3,11 +3,6 @@ declare(strict_types=1);
 
 namespace LexCloud\Support;
 
-/**
- * Sessões gravadas no banco (tabela sessions): sobrevivem a deploys e reinícios do Render/Fly.
- * Se o banco falhar, o motivo vai para o log e a página continua abrindo (sem sessão persistente),
- * em vez de derrubar tudo com erro fatal.
- */
 final class DbSessionHandler implements \SessionHandlerInterface
 {
     private static function falha(string $onde, \Throwable $e): void
@@ -31,7 +26,7 @@ final class DbSessionHandler implements \SessionHandlerInterface
     {
         try {
             return Database::connection()->prepare('INSERT INTO sessions (id,data,expires_at) VALUES (?,?,UTC_TIMESTAMP() + INTERVAL 8 HOUR) ON DUPLICATE KEY UPDATE data=VALUES(data), expires_at=VALUES(expires_at)')->execute([$id, $data]);
-        } catch (\Throwable $e) { self::falha('gravação', $e); return true; } // true: evita aviso do PHP na resposta; o motivo já está no log
+        } catch (\Throwable $e) { self::falha('gravação', $e); return true; }
     }
 
     public function destroy(string $id): bool

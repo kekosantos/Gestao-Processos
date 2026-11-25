@@ -45,7 +45,6 @@ final class ApiController
             self::platformSetup();
         }
 
-        // Biometria: o próprio bloco confere método, CSRF (nos POST/DELETE) e login (no cadastro e na lista)
         if (str_starts_with($path, '/api/auth/webauthn/')) {
             self::auth($path, $method);
         }
@@ -58,7 +57,6 @@ final class ApiController
 
         $user = Security::requireUser();
         if (!empty($user['must_change_password']) && $path !== '/api/auth/change-password') { Http::fail('Troque sua senha temporária antes de continuar.', 403); }
-        // Acesso da CHS a um escritório: completo, como o "Dashboard" do Gestão de Notas (a troca de senha é bloqueada na própria rota)
         if ($path === '/api/platform/support/exit' && $method === 'POST') {
             Security::verifyCsrf();
             unset($_SESSION['support_tenant']); Security::forget();
@@ -115,7 +113,6 @@ final class ApiController
             if (!$hash || !password_verify($current, (string)$hash)) { Http::fail('A senha atual não confere.', 401); }
             $novoHash = password_hash($next, PASSWORD_DEFAULT);
             $db->prepare('UPDATE users SET password_hash=?,must_change_password=0,senha_inicial_ate=NULL WHERE id=?')->execute([$novoHash, (int)$user['id']]);
-            // Esta sessão continua; as abertas em outros aparelhos são encerradas
             session_regenerate_id(true); $_SESSION['user']['pw'] = Security::assinaturaSenha($novoHash); Security::forget();
             $_SESSION['_csrf'] = bin2hex(random_bytes(32));
             Http::respond(['ok'=>true,'user'=>Security::user(),'csrf'=>Security::csrfToken()]);
@@ -124,7 +121,6 @@ final class ApiController
         if ($path === '/api/auth/reset') { self::resetPassword($db, $input); }
         if ($path === '/api/auth/register') {
             if ($method !== 'POST') { Http::fail('Método não permitido.', 405); }
-            // Autocadastro público desligado: os escritórios são cadastrados pelo admin da plataforma.
             if (!self::signupAberto()) { Http::fail('O cadastro de escritórios é feito pela administração da plataforma.', 404); }
             $name = Http::requiredString($input, 'name', 180);
             $office = Http::requiredString($input, 'office_name', 180);
@@ -157,11 +153,15 @@ final class ApiController
             Http::respond(['ok' => true, 'user' => Security::user(), 'csrf' => Security::csrfToken()], 201);
         }
 
-        // ── Biometria (mesmo motor do Gestão de Notas) ─────────────────────────
         if ($path === '/api/auth/webauthn/login-options' && $method === 'GET') {
-            // Não lista credenciais de ninguém: o aparelho oferece as contas que ele mesmo guarda
-            // Vai junto um token CSRF novo: depois de "Sair", a tela ainda tinha o token da sessão encerrada
-            Http::respond((new WebAuthn())->getAuthenticationOptions() + ['csrf' => Security::csrfToken()]);
+            $ids = array_values(array_unique(array_filter(array_slice(explode(',', (string) ($_GET['cred'] ?? '')), 0, 5), fn($x) => (bool) preg_match('/^[A-Za-z0-9_-]{16,1400}$/', $x))));
+            $permitidas = [];
+            if ($ids) {
+                $st = Database::connection()->prepare('SELECT credential_id FROM webauthn_credentials WHERE credential_id IN (' . implode(',', array_fill(0, count($ids), '?')) . ')');
+                $st->execute($ids);
+                $permitidas = array_column($st->fetchAll(\PDO::FETCH_ASSOC), 'credential_id');
+            }
+            Http::respond((new WebAuthn())->getAuthenticationOptions($permitidas) + ['csrf' => Security::csrfToken()]);
         }
         if ($path === '/api/auth/webauthn/login-verify' && $method === 'POST') {
             Security::verifyCsrf();
@@ -185,7 +185,6 @@ final class ApiController
                 self::recordLoginFailure($db, $key, $attempt);
                 Http::fail($e->getMessage(), 401);
             }
-            // Mesmas regras do login por senha: conta ativa, escritório não suspenso, nunca a conta oculta de suporte
             if ((int) $row['active'] !== 1 || (int) $row['suporte'] === 1 || ($row['tenant_id'] !== null && $row['tenant_status'] === 'suspended')) {
                 Http::fail('Acesso não permitido para esta conta.', 401);
             }
@@ -240,14 +239,14 @@ final class ApiController
 
         if ($path === '/api/auth/login') {
             if ($method !== 'POST') { Http::fail('Método não permitido.', 405); }
-            $email = strtolower(trim((string) ($input['email'] ?? '')));   // e-mail OU usuário (ex.: cleiton.santos)
+            $email = strtolower(trim((string) ($input['email'] ?? '')));
             $password = (string) ($input['password'] ?? '');
             $porEmail = (bool) filter_var($email, FILTER_VALIDATE_EMAIL);
             if ((!$porEmail && !preg_match('/^[a-z0-9._-]{3,80}$/', $email)) || $password === '') { Http::fail('Usuário ou senha inválidos.', 401); }
-            $key = hash('sha256', $email . '|' . Security::clientIp()); // IP real (atrás do proxy do Render/Fly)
+            $key = hash('sha256', $email . '|' . Security::clientIp());
             $limit = $db->prepare('SELECT attempts, window_started_at, locked_until FROM login_attempts WHERE identifier_hash = ?');
             $limit->execute([$key]);
-            $attempt = $limit->fetch() ?: null; // fetch() devolve false sem registro (antes: erro 500 e bloqueio que nunca ativava)
+            $attempt = $limit->fetch() ?: null;
             if ($attempt && !empty($attempt['locked_until']) && strtotime((string) $attempt['locked_until']) > time()) {
                 Http::fail('Muitas tentativas. Aguarde alguns minutos e tente novamente.', 429);
             }
@@ -260,8 +259,6 @@ final class ApiController
                 self::recordLoginFailure($db, $key, $attempt);
                 Http::fail('Usuário ou senha inválidos.', 401);
             }
-            // Senha inicial vale por tempo limitado: depois disso, só com um novo acesso enviado pelo administrador
-            // Comparação feita no próprio banco (NOW() do banco): evita diferença de fuso entre o PHP e o TiDB
             if ((int) $row['must_change_password'] === 1 && (int) $row['senha_vencida'] === 1) {
                 Http::fail('A senha inicial expirou. Peça ao administrador para reenviar o acesso (ou use "Esqueci minha senha").', 401);
             }
@@ -574,14 +571,9 @@ final class ApiController
         $value=trim($value);$formats=['!Y-m-d\TH:i','!Y-m-d H:i:s','!Y-m-d H:i'];$date=null;foreach($formats as $format){$date=\DateTimeImmutable::createFromFormat($format,$value);if($date&&$date->format(str_contains($format,'\\T')?'Y-m-d\TH:i':(str_contains($format,'s')?'Y-m-d H:i:s':'Y-m-d H:i'))===$value)break;$date=null;}if(!$date)Http::fail('Data e hora inválidas.');return $date->format('Y-m-d H:i:s');
     }
 
-    // ─────────────────────────────────────────────────────────────────
-    // Plataforma (admin da CHS), convites e recuperação de senha
-    // ─────────────────────────────────────────────────────────────────
 
-    /** Autocadastro público de escritórios: desligado por padrão (ALLOW_SIGNUP=true para ligar). */
     private static function signupAberto(): bool { return getenv('ALLOW_SIGNUP') === 'true'; }
 
-    /** Criação do admin da plataforma pela web: só com SETUP_TOKEN (24+) e enquanto não houver nenhum. */
     private static function setupDisponivel(): bool
     {
         if (strlen((string) getenv('SETUP_TOKEN')) < 24) return false;
@@ -597,7 +589,6 @@ final class ApiController
         return ($https ? 'https' : 'http') . '://' . preg_replace('/[^a-zA-Z0-9.:-]/', '', (string) ($_SERVER['HTTP_HOST'] ?? 'localhost'));
     }
 
-    /** Link de uso único para criar/redefinir a senha. @return string o link */
     private static function criarLinkSenha(PDO $db, int $userId, int $horas): string
     {
         $tok = bin2hex(random_bytes(32));
@@ -631,7 +622,6 @@ final class ApiController
                 }
             }
         }
-        // Mesma resposta exista ou não a conta
         Http::respond(['ok' => true, 'message' => 'Se o e-mail estiver cadastrado, você receberá um link para criar uma nova senha. Confira também o spam.']);
     }
 
@@ -643,7 +633,6 @@ final class ApiController
         $st->execute([hash('sha256', $tok)]); $uid = $st->fetchColumn();
         if (!$uid) Http::fail('Link inválido ou expirado. Peça um novo.', 400);
         if (strlen($nova) < 12 || strlen($nova) > 200) Http::fail('A nova senha precisa ter entre 12 e 200 caracteres.');
-        // must_change_password=0: a pessoa acabou de escolher a própria senha. Sessões antigas caem (assinatura da senha muda).
         $db->prepare('UPDATE users SET password_hash=?, must_change_password=0, senha_inicial_ate=NULL WHERE id=?')->execute([password_hash($nova, PASSWORD_DEFAULT), (int) $uid]);
         $db->prepare('UPDATE password_resets SET used_at=UTC_TIMESTAMP() WHERE user_id=? AND used_at IS NULL')->execute([(int) $uid]);
         Http::respond(['ok' => true, 'message' => 'Senha criada. Entre com o seu e-mail e a nova senha.']);
@@ -667,7 +656,6 @@ final class ApiController
         if (($user['role'] ?? '') !== 'platform_admin' || !empty($user['tenant_id'])) Http::fail('Acesso restrito à administração da plataforma.', 403);
     }
 
-    /** Novo escritório + responsável (owner) com convite por e-mail (link de 48h para criar a senha). */
     private static function platformCreateTenant(PDO $db, array $user): never
     {
         self::exigirPlataforma($user); Security::verifyCsrf();
@@ -717,7 +705,6 @@ final class ApiController
             Security::audit($db, ['id' => $user['id'], 'tenant_id' => $tid], 'platform:invite_resent', 'user', (int) $owner['id']);
             Http::respond(['ok' => true, 'invite_link' => $link, 'message' => 'Acesso renovado: ' . $owner['email'] . ' volta para a senha padrão (troca obrigatória, vale ' . Security::DIAS_SENHA_INICIAL . ' dias). Convite também enviado por e-mail.']);
         }
-        // support
         $_SESSION['support_tenant'] = $tid; Security::forget();
         Security::usuarioSuporte($db, $tid);
         Security::audit($db, ['id' => Security::usuarioSuporte($db, $tid), 'tenant_id' => $tid], 'platform:acesso_chs_' . preg_replace('/[^a-z0-9._-]/', '', strtolower((string) ($user['email'] ?? ''))), 'tenant', $tid);

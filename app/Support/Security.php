@@ -10,7 +10,6 @@ final class Security
     private static bool $carregado = false;
     private static ?array $atual = null;
 
-    /** IP real do visitante. Atrás do proxy do Render/Fly (TRUST_PROXY=true) o REMOTE_ADDR é o do proxy. */
     public static function clientIp(): string
     {
         if (getenv('TRUST_PROXY') === 'true') {
@@ -40,7 +39,6 @@ final class Security
         ini_set('session.use_strict_mode', '1');
         ini_set('session.use_only_cookies', '1');
         ini_set('session.gc_maxlifetime', '28800');
-        // Sessão no banco (o disco do Render/Fly é apagado a cada reinício). SESSION_DRIVER=files para desligar.
         if (PHP_SAPI !== 'cli' && getenv('SESSION_DRIVER') !== 'files') {
             try { session_set_save_handler(new DbSessionHandler(), true); }
             catch (\Throwable $e) { error_log('LexCloud: sessão em arquivo (banco indisponível): ' . $e->getMessage()); }
@@ -66,12 +64,6 @@ final class Security
         }
     }
 
-    /**
-     * Usuário da requisição, RECONFERIDO NO BANCO a cada requisição: conta desativada,
-     * escritório suspenso ou senha trocada encerram o acesso na hora (antes valia até
-     * o próximo login). Perfil e nome também vêm sempre do banco.
-     * Modo suporte: o admin da plataforma vê um escritório SOMENTE LEITURA.
-     */
     public static function user(): ?array
     {
         self::startSession();
@@ -90,7 +82,6 @@ final class Security
         }
         $versao = (string) ($_SESSION['user']['pw'] ?? '');
         $assinatura = $u ? self::assinaturaSenha((string) $u['password_hash']) : '';
-        // Senha trocada em outro aparelho encerra esta sessão
         if (!$u || (int) $u['active'] !== 1 || ($u['tenant_id'] !== null && $u['tenant_status'] === 'suspended')
             || ($versao !== '' && !hash_equals($versao, $assinatura))) {
             unset($_SESSION['user'], $_SESSION['support_tenant']);
@@ -107,8 +98,6 @@ final class Security
             'tenant_slug' => $u['tenant_slug'],
         ];
         $_SESSION['user'] = $user + ['pw' => $assinatura];
-        // Acesso da CHS a um escritório (como o "Dashboard" do Gestão de Notas): acesso COMPLETO, agindo como
-        // o usuário oculto "Suporte CHS" daquele escritório (assim tudo fica registrado como feito pela CHS)
         $suporte = (int) ($_SESSION['support_tenant'] ?? 0);
         if ($suporte > 0 && $user['role'] === 'platform_admin' && $user['tenant_id'] === null) {
             $t = Database::connection()->prepare('SELECT id,name,slug FROM tenants WHERE id=?');
@@ -186,10 +175,6 @@ final class Security
         ]);
     }
 
-    /**
-     * Senha inicial das contas criadas pela plataforma (troca obrigatória no primeiro acesso, vale 7 dias).
-     * Defina SENHA_PADRAO no Render/Fly com um valor só seu; sem ela, vale "password".
-     */
     public static function senhaPadrao(): string
     {
         $v = (string) getenv('SENHA_PADRAO');
@@ -198,10 +183,6 @@ final class Security
 
     public const DIAS_SENHA_INICIAL = 7;
 
-    /**
-     * Usuário oculto "Suporte CHS" do escritório (criado na primeira vez). Não aparece na equipe e não entra
-     * pelo login (active=0): existe só para o que a CHS faz dentro do escritório ficar registrado em nome dela.
-     */
     public static function usuarioSuporte(PDO $db, int $tenantId): int
     {
         $s = $db->prepare('SELECT id FROM users WHERE tenant_id=? AND suporte=1 ORDER BY id LIMIT 1');

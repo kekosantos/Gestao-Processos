@@ -9,7 +9,6 @@ ASSETS.mkdir(parents=True, exist_ok=True)
 BG = (11, 91, 85, 255)
 FG = (245, 247, 245, 255)
 
-# Full-bleed opaque square app icon; the three shapes suggest a clear legal portal.
 image = Image.new("RGBA", (512, 512), BG)
 draw = ImageDraw.Draw(image)
 draw.rounded_rectangle((118, 112, 394, 184), radius=10, fill=FG)

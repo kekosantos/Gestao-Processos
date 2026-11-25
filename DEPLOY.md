@@ -54,7 +54,7 @@ Detalhes: veja `CORRECOES.md` e os guias em `docs/`.
 
 # LexCloud — subir em nuvem
 
-Este pacote contém a aplicação PHP 8.3/MySQL, Dockerfile e configurações para **Render** e **Fly.io**. Extraia o ZIP e siga o guia do provedor escolhido:
+Este pacote contém a aplicação PHP 8.5/MySQL, Dockerfile e configurações para **Render** e **Fly.io**. Extraia o ZIP e siga o guia do provedor escolhido:
 
 - [Deploy Render](docs/deploy-render.md) — Blueprint `render.yaml`; serviço pago com pre-deploy automático da migração.
 - [Deploy Fly.io](docs/deploy-flyio.md) — `fly.toml`, segredo do MySQL por `fly secrets`, migração no `release_command`.

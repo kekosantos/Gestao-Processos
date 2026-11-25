@@ -5,7 +5,7 @@
 
 ## Requisitos
 
-- PHP 8.3; extensões `pdo_mysql`, `mbstring` e `fileinfo`.
+- PHP 8.5; extensões `pdo_mysql`, `mbstring` e `fileinfo`.
 - MySQL 8 / TiDB compatível ou MariaDB compatível com InnoDB, `utf8mb4` e constraints de chave estrangeira.
 - HTTPS para instalação PWA fora de `localhost`.
 - Container de produção: `Dockerfile` na raiz e variável `PORT` disponibilizada pelo host.

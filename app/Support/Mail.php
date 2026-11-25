@@ -3,24 +3,6 @@ declare(strict_types=1);
 
 namespace LexCloud\Support;
 
-/**
- * Envio de e-mail por SMTP, sem bibliotecas externas.
- *
- * A função mail() do PHP não funciona na imagem Docker do Fly.io (não há
- * servidor de e-mail instalado) — por isso o envio é feito direto no SMTP
- * do provedor (Gmail, Outlook, Zoho, Brevo, Locaweb...).
- *
- * Configuração (secrets do Fly.io):
- *   MAIL_HOST       ex.: smtp.gmail.com
- *   MAIL_PORT       587 (tls) ou 465 (ssl)
- *   MAIL_SECURE     tls | ssl | none            (padrão: tls)
- *   MAIL_USER       usuário do SMTP (normalmente o e-mail)
- *   MAIL_PASS       senha / senha de app
- *   MAIL_FROM       remetente (padrão: MAIL_USER)
- *   MAIL_FROM_NAME  nome do remetente (padrão: nome do sistema)
- *
- * Mesma classe dos sistemas da CHS (Gestão de Notas, Gestão Contábil, Portal de Igrejas).
- */
 final class Mail
 {
     private static function env(string $k, $padrao = null) { $v = getenv($k); return ($v === false || $v === '') ? $padrao : $v; }
@@ -33,9 +15,6 @@ final class Mail
         return self::env('MAIL_HOST', '') !== '';
     }
 
-    /**
-     * @return array{ok:bool, erro?:string}
-     */
     public static function enviar(string $para, string $assunto, string $html, ?string $texto = null): array
     {
         if (!self::configurado()) {
@@ -107,7 +86,6 @@ final class Mail
                . "--{$limite}\r\nContent-Type: text/html; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n"
                . chunk_split(base64_encode($html))
                . "--{$limite}--\r\n";
-        // base64 não tem linhas começando com ".", então não precisa de dot-stuffing
         fwrite($this->sock, implode("\r\n", $cab) . "\r\n\r\n" . $corpo . ".\r\n");
         $this->esperar(250);
         $this->cmd('QUIT', [221, 250]);
@@ -125,7 +103,7 @@ final class Mail
         $resp = '';
         while (($l = fgets($this->sock, 1024)) !== false) {
             $resp .= $l;
-            if (strlen($l) < 4 || $l[3] !== '-') break; // última linha da resposta
+            if (strlen($l) < 4 || $l[3] !== '-') break;
         }
         $this->log[] = '< ' . trim($resp);
         $codigo = (int) substr($resp, 0, 3);
